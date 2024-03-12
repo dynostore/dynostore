@@ -1,0 +1,65 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# auth service
+RewriteCond %{QUERY_STRING} tokenuser=(\w+)
+RewriteRule ^auth/v1/users/?$ API.php?type=10&tokenuser=$1 [QSA,NC,L]
+RewriteCond %{QUERY_STRING} access_token=(\w+)
+RewriteRule ^auth/v1/view/users/all/?$ API.php?type=1&access_token=$1 [QSA,NC,L]
+RewriteRule ^auth/v1/users/?$ API.php?type=11&access_token=$1 [QSA,NC,L]
+RewriteRule ^auth/v1/users/create/?$ API.php?type=13 [NC,L]
+RewriteRule ^auth/v1/users/createfromglobal/?$ API.php?type=16 [NC,L]
+RewriteRule ^auth/v1/users/([a-z0-9]{32,64})/delete/?$ API.php?type=14&tokenuser=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^auth/v1/users/a/([a-z0-9]{13})/([a-z0-9]{32,64})/?$ API.php?code=$1&tokenuser=$2&type=15 [NC,L]
+RewriteRule ^auth/v1/users/login/?$ API.php?type=20 [NC,L]
+RewriteRule ^auth/v1/view/users/org/([a-z0-9]{32,64})/?$ API.php?type=22&tokenorg=$1&access_token=$2 [QSA,NC,L]
+
+ RewriteRule ^auth/v1/view/hierarchy/all/?$ API.php?type=2 [NC,L] 
+RewriteRule ^auth/v1/hierarchy/create/?$ API.php?type=23 [NC,L]
+RewriteRule ^auth/v1/hierarchy/([a-z0-9]{32,64})/delete/?$ API.php?type=24&tokenhierarchy=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^auth/v1/hierarchy/([a-z0-9]{32,64})/down/?$ API.php?type=27&tokenhierarchy=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^auth/v1/hierarchy/([a-z0-9]{32,64})/up/?$ API.php?type=28&tokenhierarchy=$1&access_token=$2 [QSA,NC,L]
+
+
+RewriteRule ^auth/v1/publicatalogs/?$ API.php?type=45&tokenuser=$1 [QSA,NC,L]
+
+
+
+# pub_sub service
+ #RewriteRule ^pub_sub/v1/catalogs/all/?$ API.php?type=3 [NC,L] 
+RewriteRule ^pub_sub/v1/catalogs/create/?$ API.php?type=110&access_token=$1 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/catalogs/([a-z0-9]{32,64})/delete?$ API.php?type=112&tokencatalog=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/catalogs/([a-z0-9]{32,64})/?$ API.php?type=132&id=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/catalogs/([a-z0-9]{32,64})/files/upload API.php?type=133&keyresource=$1 [QSA,NC,L]
+ #RewriteRule ^pub_sub/v1/groups/all/?$ API.php?type=4 [NC,L]
+RewriteRule ^pub_sub/v1/groups/create/?$ API.php?type=113&access_token=$1 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/groups/([a-z0-9]{32,64})/delete?$ API.php?type=115&tokengroup=$1&access_token=$2 [QSA,NC,L]
+
+RewriteRule ^pub_sub/v1/publish/catalog/user/?$ API.php?type=2000&access_token=$1 [QSA,NC,L]
+
+RewriteRule ^pub_sub/v1/publish/group/user/?$ API.php?type=116&access_token=$1 [QSA,NC,L]
+
+RewriteRule ^pub_sub/v1/subscribe/group/user/?$ API.php?type=128&access_token=$1 [QSA,NC,L]
+
+RewriteRule ^pub_sub/v1/view/groups/user/([a-z0-9]{32,64})/subscribed/?$ API.php?type=142&tokenuser=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/view/groups/user/([a-z0-9]{32,64})/published/?$ API.php?type=143&tokenuser=$1&access_token=$2 [QSA,NC,L]
+#users by catalog
+RewriteRule ^pub_sub/v1/view/users/group/([a-z0-9]{32,64})/subscribed/?$ API.php?type=146&tokengroup=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/view/users/group/([a-z0-9]{32,64})/published/?$ API.php?type=147&tokengroup=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/view/catalogs/user/([a-z0-9]{32,64})/subscribed/?$ API.php?type=148&tokenuser=$1&access_token=$2 [QSA,NC,L]
+#RewriteRule ^pub_sub/v1/view/catalogs/user/([a-z0-9]{32,64})/temp/?$ API.php?type=948&tokenuser=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/view/catalogs/user/([a-z0-9]{32,64})/published/?$ API.php?type=149&tokenuser=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/view/catalogs/group/([a-z0-9]{32,64})/?$ API.php?type=151&tokengroup=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/view/files/catalog/([a-z0-9]{32,64})/?$ API.php?type=152&tokencatalog=$1&access_token=$2 [QSA,NC,L]
+RewriteRule ^pub_sub/v1/view/childs/catalog/([a-z0-9]{32,64})/?$ API.php?type=1530&tokencatalog=$1&access_token=$2 [QSA,NC,L]
+
+RewriteRule ^pub_sub/v1/view/catalogs/user/([a-z0-9]{32,64})/results/([a-z0-9]{0,200})?$ API.php?type=1000&tokenuser=$1&access_token=$3&puzzle=$2&father=$5 [QSA,NC,L]
+
+RewriteRule ^pub_sub/v1/view/catalog/([a-z0-9]{32,64})/?$ API.php?type=1531&tokencatalog=$1&access_token=$2 [QSA,NC,L]  
+
+RewriteRule ^pub_sub/v1/view/files/user/([a-z0-9]{32,64})/?$ API.php?type=154&tokenuser=$1&access_token=$2 [QSA,NC,L]
+
+
+</IfModule>

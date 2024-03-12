@@ -1,0 +1,201 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 10.1
+-- Dumped by pg_dump version 10.1
+
+-- Started on 2018-02-18 18:17:30
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+
+--
+-- TOC entry 1 (class 3079 OID 12924)
+-- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
+--
+
+CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
+
+
+--
+-- TOC entry 2975 (class 0 OID 0)
+-- Dependencies: 1
+-- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
+
+
+SET search_path = public, pg_catalog;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+
+--
+-- TOC entry 206 (class 1259 OID 26149)
+-- Name: catalogs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE catalogs (
+    keycatalog character varying(100) NOT NULL,
+    namecatalog character varying(100),
+    created_at timestamp DEFAULT NOW(),
+    created_by character varying(100),
+    dispersemode character varying(25),
+    encryption boolean NOT NULL DEFAULT false,
+    father character varying(100),
+    UNIQUE(namecatalog),
+    PRIMARY KEY (keycatalog)
+);
+
+
+ALTER TABLE catalogs OWNER TO postgres;
+
+
+
+
+
+
+--
+-- TOC entry 198 (class 1259 OID 26117)
+-- Name: groups; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE groups (
+    keygroup character varying(100) NOT NULL,
+    namegroup character varying(100),
+    created_at timestamp DEFAULT NOW(),
+    father character varying(100) DEFAULT '0',
+    ispublic boolean NOT NULL DEFAULT false,
+    UNIQUE(namegroup),
+    PRIMARY KEY (keygroup)
+);
+
+
+ALTER TABLE groups OWNER TO postgres;
+
+
+
+
+--
+-- TOC entry 211 (class 1259 OID 26168)
+-- Name: subscribe; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE subscriptions (
+    id serial NOT NULL,
+    token character varying(100),
+    tokencatalog character varying(100),
+    status character varying(20),
+    CONSTRAINT Ref_subscriptions_to_catalogs FOREIGN KEY (tokencatalog) REFERENCES catalogs(keycatalog)
+);
+
+
+ALTER TABLE subscriptions OWNER TO postgres;
+
+
+
+
+CREATE TABLE publications (
+    id serial NOT NULL,
+    token character varying(100),
+    tokencatalog character varying(100),
+    status character varying(20),
+    CONSTRAINT Ref_publications_to_catalogs FOREIGN KEY (tokencatalog) REFERENCES catalogs(keycatalog)
+);
+
+
+ALTER TABLE publications OWNER TO postgres;
+
+
+
+--
+-- TOC entry 214 (class 1259 OID 26183)
+-- Name: users_catalogs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+
+CREATE TABLE users_catalogs (
+    id serial NOT NULL,
+    keyuser character varying(100),
+    keycatalog character varying(100),
+    status character varying(20),
+    isadmin boolean NOT NULL DEFAULT false,
+    isowner boolean NOT NULL DEFAULT false,
+    PRIMARY KEY(id),
+    UNIQUE(keyuser,keycatalog),
+    CONSTRAINT Ref_users_catalogs_to_catalogs FOREIGN KEY (keycatalog) REFERENCES catalogs(keycatalog) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+ALTER TABLE users_catalogs OWNER TO postgres;
+
+
+
+
+
+
+
+
+--
+-- TOC entry 218 (class 1259 OID 26199)
+-- Name: users_groups; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE users_groups (
+    id serial NOT NULL,
+    keyuser character varying(100),
+    keygroup character varying(100),
+    status character varying(20),
+    isadmin boolean NOT NULL DEFAULT false,
+    isowner boolean NOT NULL DEFAULT false,
+    PRIMARY KEY(id),
+    UNIQUE(keyuser,keygroup),
+    CONSTRAINT Ref_users_groups_to_groups FOREIGN KEY (keygroup) REFERENCES groups (keygroup) ON DELETE CASCADE ON UPDATE CASCADE
+    
+);
+
+ALTER TABLE users_groups OWNER TO postgres;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Completed on 2018-02-18 18:17:35
+--
+-- PostgreSQL database dump complete
+--
+

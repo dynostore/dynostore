@@ -1,0 +1,134 @@
+[12/Feb/2018:22:45:07] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "topics" does not exist
+LINE 1: SELECT * FROM topics WHERE id = $1;
+                      ^
+[12/Feb/2018:22:45:12] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "topics" does not exist
+LINE 1: SELECT * FROM topics WHERE id = $1;
+                      ^
+[12/Feb/2018:22:45:15] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "topics" does not exist
+LINE 1: SELECT * FROM topics WHERE id = $1;
+                      ^
+[12/Feb/2018:23:17:21] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "nodes" does not exist
+LINE 1: SELECT * FROM nodes;
+                      ^
+[12/Feb/2018:23:17:37] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "nodes" does not exist
+LINE 1: SELECT * FROM nodes;
+                      ^
+[12/Feb/2018:23:18:19] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "nodes" does not exist
+LINE 1: SELECT * FROM nodes;
+                      ^
+[12/Feb/2018:23:21:05] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "nodes" does not exist
+LINE 1: SELECT * FROM nodes;
+                      ^
+[12/Feb/2018:23:25:03] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "nodes" does not exist
+LINE 1: SELECT * FROM nodes;
+                      ^
+[12/Feb/2018:23:26:36] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "nodes" does not exist
+LINE 1: INSERT INTO nodes(url, capacity, memory) VALUES($1, $2, $3);
+                    ^
+[13/Feb/2018:11:03:47] (api) SQLSTATE[08006] [7] timeout expired
+[13/Feb/2018:11:04:33] (api) SQLSTATE[08006] [7] timeout expired
+[13/Feb/2018:11:05:10] (api) SQLSTATE[08006] [7] server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+[13/Feb/2018:11:05:11] (api) SQLSTATE[08006] [7] server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+[13/Feb/2018:11:05:12] (api) SQLSTATE[08006] [7] server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+[13/Feb/2018:11:05:13] (api) SQLSTATE[08006] [7] server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+[13/Feb/2018:11:06:16] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "nodes" does not exist
+LINE 1: INSERT INTO nodes(url, capacity, memory) VALUES($1, $2, $3);
+                    ^
+[13/Feb/2018:11:06:34] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "nodes" does not exist
+LINE 1: SELECT * FROM nodes;
+                      ^
+[14/Feb/2018:04:48:48] (api) SQLSTATE[08006] [7] server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+[14/Feb/2018:04:49:33] (api) SQLSTATE[08006] [7] server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+[15/Feb/2018:14:48:37] (api) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "users" does not exist
+LINE 1: SELECT * FROM users;
+                      ^
+[15/Feb/2018:15:57:37] (nodes) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "node" does not exist
+LINE 1: DELETE FROM node WHERE id = $1;
+                    ^
+[15/Feb/2018:15:57:47] (nodes) SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "node" does not exist
+LINE 1: DELETE FROM node WHERE id = $1;
+                    ^
+[15/Feb/2018:16:24:59] (files) SQLSTATE[42601]: Syntax error: 7 ERROR:  syntax error at or near "returnig"
+LINE 1: ...ERT INTO files(id, name, size) VALUES($1, $2, $3) returnig i...
+                                                             ^
+[15/Feb/2018:16:30:24] (files) SQLSTATE[08P01]: <<Unknown error>>: 7 ERROR:  bind message supplies 1 parameters, but prepared statement "pdo_stmt_00000001" requires 0
+[15/Feb/2018:16:30:45] (files) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "files_pkey"
+DETAIL:  Key (id)=(2) already exists.
+[15/Feb/2018:16:30:54] (files) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "files_pkey"
+DETAIL:  Key (id)=(3) already exists.
+[15/Feb/2018:16:31:14] (files) SQLSTATE[08P01]: <<Unknown error>>: 7 ERROR:  bind message supplies 1 parameters, but prepared statement "pdo_stmt_00000001" requires 0
+[15/Feb/2018:16:31:57] (files) SQLSTATE[08P01]: <<Unknown error>>: 7 ERROR:  bind message supplies 1 parameters, but prepared statement "pdo_stmt_00000001" requires 0
+[15/Feb/2018:16:32:16] (files) SQLSTATE[08P01]: <<Unknown error>>: 7 ERROR:  bind message supplies 1 parameters, but prepared statement "pdo_stmt_00000001" requires 0
+[15/Feb/2018:18:40:41] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(2) already exists.
+[16/Feb/2018:15:32:49] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(1) already exists.
+[16/Feb/2018:15:33:25] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(2) already exists.
+[16/Feb/2018:15:35:32] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(3) already exists.
+[16/Feb/2018:17:17:39] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(1) already exists.
+[16/Feb/2018:17:17:40] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(1) already exists.
+[16/Feb/2018:17:18:22] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(2) already exists.
+[16/Feb/2018:17:18:22] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(2) already exists.
+[16/Feb/2018:17:19:20] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(2) already exists.
+[16/Feb/2018:17:20:42] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(2) already exists.
+[16/Feb/2018:17:20:50] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(2) already exists.
+[16/Feb/2018:17:20:54] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(2) already exists.
+[16/Feb/2018:17:39:26] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(3) already exists.
+[16/Feb/2018:17:39:40] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(3) already exists.
+[16/Feb/2018:17:39:47] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(3) already exists.
+[16/Feb/2018:17:39:49] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(3) already exists.
+[16/Feb/2018:17:39:50] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(3) already exists.
+[16/Feb/2018:17:40:46] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(3) already exists.
+[16/Feb/2018:17:40:47] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(3) already exists.
+[18/Feb/2018:17:22:59] (users) SQLSTATE[08006] [7] could not connect to server: Connection refused
+	Is the server running on host "127.0.0.1" and accepting
+	TCP/IP connections on port 5432?
+[18/Feb/2018:19:19:19] (users) SQLSTATE[42601]: Syntax error: 7 ERROR:  INSERT has more expressions than target columns
+LINE 1: ..., password_hash, api_key) VALUES($1, $2, $3, $4, $5, $6, $7)
+                                                                ^
+[18/Feb/2018:19:19:34] (users) SQLSTATE[42601]: Syntax error: 7 ERROR:  INSERT has more expressions than target columns
+LINE 1: ..., password_hash, api_key) VALUES($1, $2, $3, $4, $5, $6, $7)
+                                                                ^
+[18/Feb/2018:23:00:46] (users) SQLSTATE[23502]: Not null violation: 7 ERROR:  null value in column "id" violates not-null constraint
+DETAIL:  Failing row contains (null, freddy, alfreedobarron@gmail.com, $2a$10$9cf3d82bf89b8242a8de4uG27KQJRZ7BcGrctuUD0W/u7xVTfxUiu, d47e6a3f336dde3d5251eca0002e1e20, db398c29b364c3681611ab48d3ab69ff, 4299afef3608cf77963b675f818075e9, 1, 2018-02-19 05:00:46.684677).
+[18/Feb/2018:23:03:33] (users) SQLSTATE[23502]: Not null violation: 7 ERROR:  null value in column "id" violates not-null constraint
+DETAIL:  Failing row contains (null, freddo, rba1@live.com.mx, $2a$10$5c8a3ab5d29a6b0eb09d9O4iL/bW/pfF.xwwJ8Jh/6.Sg5FwZFQea, 9b7f535b6aeb95ca2c993fb4e3ac7dde, 7e571221707ff0643c8171576492355d, f97d5c71a8f7ad0ddc20e45927ba00bf, 1, 2018-02-19 05:03:33.989849).
+[18/Feb/2018:23:04:18] (users) SQLSTATE[23502]: Not null violation: 7 ERROR:  null value in column "id" violates not-null constraint
+DETAIL:  Failing row contains (null, freddo, rba1@live.com.mx, $2a$10$d905c3b171e411722e24cuPMaL8hQ0z4Eb5tlWGzuWZYfa2gt59Vi, 49774ac6e3639bc134f881a533bd3d0e, 9608319fa5384c987551a13fd1407007, 4619bcafa0d251aef13153a3b34fd674, 1, 2018-02-19 05:04:18.660776).
+[18/Feb/2018:23:05:19] (users) SQLSTATE[23502]: Not null violation: 7 ERROR:  null value in column "id" violates not-null constraint
+DETAIL:  Failing row contains (null, freddy, alfreedobarron@gmail.com, $2a$10$5a35804f04d94cec403a8OBlmK2xiOp5dOJ/w7OtWbFNYzxdIAQ2., c3169bd73186cdfd81a0a7c730c0e15b, 6762432e90614308f804264a50f04fe7, e1729820c7ccae477e1e66ee8465aec7, 1, 2018-02-19 05:05:19.347461).
+[18/Feb/2018:23:05:32] (users) SQLSTATE[23502]: Not null violation: 7 ERROR:  null value in column "id" violates not-null constraint
+DETAIL:  Failing row contains (null, freddy, alfreedobarron@gmail.com, $2a$10$aaf6bf1cd0163d944b148ezJYmmoQlBzXodyKzqdb7atidW0L2Hy2, cf76d51982bb6a91ae288c17c966bf81, 026451a0d52d41c10c957a8400b0abc3, 8a0c6c49b388230ce4af3d59aa79d634, 1, 2018-02-19 05:05:32.16729).
+[18/Feb/2018:23:06:18] (users) SQLSTATE[23502]: Not null violation: 7 ERROR:  null value in column "id" violates not-null constraint
+DETAIL:  Failing row contains (null, freddy, alfreedobarron@gmail.com, $2a$10$63ee52dd86c37f170a1bcuRFrFEZrNCqK1YbM/DAefHVgH1nX6A2C, 3c5d70f840c3d0a5461e64fc98efec6d, 13727b33a9810d97e7802f2cdf752b29, 32da1c179a07a0b933251d30ead64f07, 1, 2018-02-19 05:06:18.561094).
+[18/Feb/2018:23:30:14] (users) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "users_pkey"
+DETAIL:  Key (id)=(1) already exists.

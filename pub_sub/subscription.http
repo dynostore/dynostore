@@ -1,0 +1,1089 @@
+# Microservice of publication & subscription
+
+######   VARIABLES ############################################################
+@atbeto = f5ee9b93118b2af57f708302e9fbe07626e77089a5f5853c6e179ef8351fbf7f
+@atfer = 9aa491c85508cfeead30c569c88c8f26e3881792a3f158a323ee9ac6150ab1cd
+@atanmi = 90b1a56ba35c1aaebf8e5289d2e1baf03413379877c41ece9570a44aeb137248
+@attest = c48ca5103248222373d27ba8921732c58f3e30a0951fabd59c32b48ac0c12b0c
+@tokenanmi = e87f538e52cb7fcf71e81ebddc4bb42970a174010edc57f63526cc7bf15498a9
+@tokensus = f9781da64c1c9f03a60be9000262a3bd4f602c7c815c536e20606a8f788987f6
+@tokenbeto = 6604acedfec2e78f09f6e39655f1927261b51e4c95a357a4ede3f5b7eaea3f51
+@tokenfer = fcaef5c933be017e672b57edbb8622fc699af98150fac4e2633a6ba46d2edb87
+@tokentest = 55efe35c4e45b938e3ba6903fb2fb8c29db5c03aa739e94267b76c2da0e07493
+@tc = 2a68e2c982445aefeb51ce07913c4eea88d0ef59a88c57174b58494b001ba579
+@tgpruebas = 642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca
+###################################################################################
+
+
+
+
+
+###################################################################################
+######   CATALOGS #################################################################
+###################################################################################
+
+###DEV get all catalogs
+GET http://127.0.0.1:47012/subscription/v1/catalogs/all HTTP/1.1
+
+#########L   create catalog ###################################################
+POST http://127.0.0.1:47012/subscription/v1/catalogs?access_token={{attest}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "option": "NEW",
+    "catalogname": "Pruebas SINGLE",
+    "dispersemode": "SINGLE",
+    "encryption": "true",
+    "fathers_token": "/"
+}
+
+###
+{
+  "message": "Created",
+  "tokencatalog": "8c500437cef7318b742b2a27e13570abf4c032a17c89ed379931238a1c7f892a"
+}
+
+
+#########L   edit catalog ################################################### 
+POST http://127.0.0.1:47012/subscription/v1/catalogs?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "option": "MODIFY",
+    "tokencatalog": "72fd0db64c98986496e898204f0c017978c28aced26cfe1f9925fe35a5cd4408",
+    "catalogname": "Mas Pruebas",
+    "dispersemode": "IDA",
+    "encryption": "f"
+}
+
+###
+{
+  "message": "Modified",
+  "tokencatalog": "72fd0db64c98986496e898204f0c017978c28aced26cfe1f9925fe35a5cd4408"
+}
+
+
+#########L   delete catalog ################################################### 
+POST http://127.0.0.1:47012/subscription/v1/catalogs?access_token={{attest}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "option": "DELETE",
+    "tokencatalog": "77b98b3bc88dd5c3d06358e316002e88adc765b58d0eea3b33a91d6d0bb2bb5a"
+}
+
+###
+{
+  "message": "Deleted",
+  "tokencatalog": "8c500437cef7318b742b2a27e13570abf4c032a17c89ed379931238a1c7f892a"
+}
+
+
+
+
+
+
+
+###################################################################################
+######   GROUPS ###################################################################
+###################################################################################
+
+###DEV get all groups
+GET http://127.0.0.1:47012/subscription/v1/groups/all/ HTTP/1.1
+
+#########L   create group ################################################### 
+POST http://127.0.0.1:47012/subscription/v1/groups?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "option": "NEW",
+    "group_name": "Grupo Pruebas",
+    "fathers_token": "/"
+}
+
+###
+{
+  "message": "Created",
+  "token": "4d3652904e3320794be160c47337f2bb645736bf457dbe1ab5c833f0970323c7"
+}
+
+#########L   edit group ################################################### 
+POST http://127.0.0.1:47012/subscription/v1/groups?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "option": "MODIFY",
+    "tokengroup": "4d3652904e3320794be160c47337f2bb645736bf457dbe1ab5c833f0970323c7",
+    "group_name": "Grupo Temporal Pruebas"
+}
+
+###
+{
+  "message": "Modified",
+  "tokengroup": "4d3652904e3320794be160c47337f2bb645736bf457dbe1ab5c833f0970323c7"
+}
+
+#########L delete a group (borra recursivo)
+POST http://127.0.0.1:47012/subscription/v1/groups?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "option": "DELETE",
+    "tokengroup": "4d3652904e3320794be160c47337f2bb645736bf457dbe1ab5c833f0970323c7"
+}
+
+###
+{
+  "message": "Deleted",
+  "tokengroup": "4d3652904e3320794be160c47337f2bb645736bf457dbe1ab5c833f0970323c7"
+}
+
+
+
+
+
+
+
+###################################################################################
+######   PUBLICATIONS #############################################################
+###################################################################################
+
+###DEV get test publications
+GET http://127.0.0.1:47012/subscription/v1/groups/  HTTP/1.1
+
+######   GROUPS ###################################################################
+######### publish group to user
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "publish": "GROUP",
+    "to": "USER",
+    "tokengroup": "{{}}",
+    "tokenuser": "{{tokentest}}",
+    "status": "Pub"
+}
+
+###
+{
+  "message": "Group published",
+  "tokengroup": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca"
+}
+
+######### unpublish (delete) group to user
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unpublish": "GROUP",
+    "to": "USER",
+    "tokengroup": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokenuser": "84bac6287a026f275861ee33fcc55dbc9b65d2cc"
+}
+
+###
+{
+  "message": "Catalog unpublished",
+  "tokencatalog": "2d2fe1eafab699abe66261f82cfa462e5ae8450d9e174c88b7133fd40be301e3"
+}
+
+######   CATALOGS ###################################################################
+######   C-> U #########################################################
+#########L publish (share) catalog to user
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "publish": "CATALOG",
+    "to": "USER",
+    "tokencatalog": "{{}}",
+    "tokenuser": "{{tokentest}}",
+    "status": "Pub"
+}
+
+###
+{
+  "message": "Catalog published",
+  "tokencatalog": "2d2fe1eafab699abe66261f82cfa462e5ae8450d9e174c88b7133fd40be301e3"
+}
+
+######### unpublish catalog to user
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unpublish": "CATALOG",
+    "to": "USER",
+    "tokencatalog": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokenuser": "84bac6287a026f275861ee33fcc55dbc9b65d2cc"
+}
+
+###
+{
+  "message": "Catalog unpublished",
+  "tokencatalog": "2d2fe1eafab699abe66261f82cfa462e5ae8450d9e174c88b7133fd40be301e3"
+}
+
+######   C-> G #########################################################
+######### publish catalog to group
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "publish": "CATALOG",
+    "to": "GROUP",
+    "tokencatalog": "{{tc}}",
+    "tokengroup": "{{tgpruebas}}",
+    "status": "Published"
+}
+
+###
+{
+  "message": "Catalog published",
+  "tokencatalog": "2d2fe1eafab699abe66261f82cfa462e5ae8450d9e174c88b7133fd40be301e3"
+}
+
+######### unpublish catalog to group
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unpublish": "CATALOG",
+    "to": "GROUP",
+    "tokencatalog": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokengroup": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca"
+}
+
+###
+{
+  "message": "Catalog unpublished",
+  "tokencatalog": "2d2fe1eafab699abe66261f82cfa462e5ae8450d9e174c88b7133fd40be301e3"
+}
+
+######   FILES ###################################################################
+######   F->C  #########################################################
+######### publish file to catalog
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "publish": "FILE",
+    "to": "CATALOG",
+    "tokenfile": "{{}}",
+    "tokencatalog": "{{tokentest}}",
+    "status": "Pub"
+}
+
+###
+{
+  "message": "File published",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######### unpublish file to catalog
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unpublish": "FILE",
+    "to": "CATALOG",
+    "tokenfile": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokencatalog": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca"
+}
+
+###
+{
+  "message": "File unpublished",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######   F->U  #########################################################
+######### publish file to user
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "publish": "FILE",
+    "to": "USER",
+    "tokenfile": "{{}}",
+    "tokenuser": "{{tokentest}}",
+    "status": "Pub"
+}
+
+###
+{
+  "message": "File published",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######### unpublish file to user
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unpublish": "FILE",
+    "to": "USER",
+    "tokenfile": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokenuser": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca"
+}
+
+###
+{
+  "message": "File unpublished",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######   F->G  #########################################################
+######### publish file to group
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "publish": "FILE",
+    "to": "GROUP",
+    "tokenfile": "{{}}",
+    "tokengroup": "{{tokentest}}",
+    "status": "Pub"
+}
+
+###
+{
+  "message": "File published",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######### unpublish file to group
+POST http://127.0.0.1:47012/subscription/v1/publications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unpublish": "FILE",
+    "to": "GROUP",
+    "tokenfile": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokengroup": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca"
+}
+
+###
+{
+  "message": "File unpublished",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+
+
+
+
+
+###################################################################################
+######   SUBSCRIPTIONS ############################################################
+###################################################################################
+
+###DEV get test subscriptions
+GET http://127.0.0.1:47012/subscription/v1/groups/test/ HTTP/1.1
+
+######   GROUP ###################################################################
+######   G->U  #########################################################
+######### subscribe group to user
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "subscribe": "GROUP",
+    "to": "USER",
+    "tokengroup": "{{}}",
+    "tokenuser": "{{tokentest}}",
+    "status": "Sub"
+}
+
+###
+{
+  "message": "Group subscribed",
+  "tokengroup": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca"
+}
+
+######### unsubscribe (delete) group to user
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unsubscribe": "GROUP",
+    "to": "USER",
+    "tokengroup": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokenuser": "84bac6287a026f275861ee33fcc55dbc9b65d2cc"
+}
+
+###
+{
+  "message": "Group unsubscribed",
+  "tokengroup": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca"
+}
+
+
+######   CATALOGS ###################################################################
+######   C->U  #########################################################
+######### subscribe catalog to user
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "subscribe": "CATALOG",
+    "to": "USER",
+    "tokencatalog": "{{}}",
+    "tokenuser": "{{tokentest}}",
+    "status": "Sub"
+}
+
+###
+{
+  "message": "Catalog subscribed",
+  "tokencatalog": "2d2fe1eafab699abe66261f82cfa462e5ae8450d9e174c88b7133fd40be301e3"
+}
+
+######### unsubscribe catalog to user
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unsubscribe": "CATALOG",
+    "to": "USER",
+    "tokencatalog": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokenuser": "84bac6287a026f275861ee33fcc55dbc9b65d2cc"
+}
+
+###
+{
+  "message": "Catalog unsubscribed",
+  "tokencatalog": "2d2fe1eafab699abe66261f82cfa462e5ae8450d9e174c88b7133fd40be301e3"
+}
+
+######   C->G  #########################################################
+######### subscribe catalog to group
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "subscribe": "CATALOG",
+    "to": "group",
+    "tokencatalog": "{{}}",
+    "tokengroup": "{{tokentest}}",
+    "status": "Sub"
+}
+
+###
+{
+  "message": "Catalog subscribed",
+  "tokencatalog": "2d2fe1eafab699abe66261f82cfa462e5ae8450d9e174c88b7133fd40be301e3"
+}
+
+######### unsubscribe catalog to group
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unsubscribe": "CATALOG",
+    "to": "group",
+    "tokencatalog": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokengroup": "84bac6287a026f275861ee33fcc55dbc9b65d2cc"
+}
+
+###
+{
+  "message": "Catalog unsubscribed",
+  "tokencatalog": "2d2fe1eafab699abe66261f82cfa462e5ae8450d9e174c88b7133fd40be301e3"
+}
+
+######   FILES ###################################################################
+######   F->C  #########################################################
+######### subscribe file to catalog
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "subscribe": "FILE",
+    "to": "CATALOG",
+    "tokenfile": "{{}}",
+    "tokencatalog": "{{tokentest}}",
+    "status": "Sub"
+}
+
+###
+{
+  "message": "File subscribed",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######### unsubscribe file to catalog
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unsubscribe": "FILE",
+    "to": "CATALOG",
+    "tokenfile": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokencatalog": "84bac6287a026f275861ee33fcc55dbc9b65d2cc"
+}
+
+###
+{
+  "message": "File unsubscribed",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######   F->U  #########################################################
+######### subscribe file to user
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "subscribe": "FILE",
+    "to": "USER",
+    "tokenfile": "{{}}",
+    "tokenuser": "{{tokentest}}",
+    "status": "Sub"
+}
+
+###
+{
+  "message": "File subscribed",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######### unsubscribe file to user
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unsubscribe": "FILE",
+    "to": "USER",
+    "tokenfile": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokenuser": "84bac6287a026f275861ee33fcc55dbc9b65d2cc"
+}
+
+###
+{
+  "message": "File unsubscribed",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######   F->G  #########################################################
+######### subscribe file to group
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "subscribe": "FILE",
+    "to": "GROUP",
+    "tokenfile": "{{}}",
+    "tokengroup": "{{tokentest}}",
+    "status": "Sub"
+}
+
+###
+{
+  "message": "File subscribed",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+######### unsubscribe file to group
+POST http://127.0.0.1:47012/subscription/v1/subscriptions?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "unsubscribe": "FILE",
+    "to": "GROUP",
+    "tokenfile": "84bac6287a026f275861ee33fcc55dbc9b65d2cc",
+    "tokengroup": "84bac6287a026f275861ee33fcc55dbc9b65d2cc"
+}
+
+###
+{
+  "message": "File unsubscribed",
+  "tokenfile": "5a2b564940fcda436379a6d18a614a8429a51jg4"
+}
+
+
+
+
+
+
+
+###################################################################################
+######   VISUALIZATION ############################################################
+###################################################################################
+
+######   GROUPS ###################################################################
+#########L view groups by catalog (sub and pub) falta publicar catalogo en grupo
+POST http://127.0.0.1:47012/subscription/v1/visualization?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "show": "GROUPS",
+    "by": "CATALOG",
+    "tokencatalog": "{{tc}}"
+}
+
+###
+{
+  "message": "Ok",
+  "data": [
+    {
+      "tokengroup": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca",
+      "status": "Published",
+      "namegroup": "Pruebas",
+      "created_at": "2018-05-14 16:59:22.957347",
+      "father": "\/"
+    },
+    {
+      "tokengroup": "2a68e2c982445aefeb51ce07913c4eea88d0ef59a88c57174b58494b001ba579",
+      "status": "Subscribed",
+      "namegroup": "Grupo LTI",
+      "created_at": "2018-05-14 16:59:22.957347",
+      "father": "\/"
+    }
+  ]
+}
+
+#########L view groups by user
+POST http://127.0.0.1:47012/subscription/v1/visualization?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "show": "GROUPS",
+    "by": "USER",
+    "tokenuser": "{{tokenfer}}"
+}
+
+###
+{
+  "message": "Ok",
+  "data": [
+    {
+      "tokengroup": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca",
+      "status": "Published",
+      "namegroup": "Pruebas",
+      "created_at": "2018-05-14 16:59:22.957347",
+      "father": "\/"
+    },
+    {
+      "tokengroup": "f4b8d52bc7378ce0878280b37d00a7a644fcadab9f74a84a21836282d0eb5b7b",
+      "status": "Owner",      
+      "namegroup": "LandSat",
+      "created_at": "2018-05-14 23:01:39.247428",
+      "father": "\/"
+    }
+  ]
+}
+
+######   USERS ###################################################################
+######### view users by catalog
+POST http://127.0.0.1:47012/subscription/v1/viewUsers?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "show": "USERS",
+    "by": "CATALOG",
+    "tokencatalog": "0561deb4ff63152f039aacf9088630ed56f1b4cd"
+}
+
+###
+{
+  "message": "Ok",
+  "data": [
+    {
+      "tokenuser": "6604acedfec2e78f09f6e39655f1927261b51e4c95a357a4ede3f5b7eaea3f51",
+      "username": "test10",
+      "email": "test10@gmail.com"
+    }
+  ]
+}
+
+######### view users by group
+POST http://127.0.0.1:47012/subscription/v1/visualization?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "show": "USERS",
+    "by": "GROUP",
+    "tokengroup": "642e94095acb17e9db9c1986dd23508df06d7531eba670be027d220321b98dca"
+}
+
+###
+{
+  "message": "Ok",
+  "data": [
+    {
+      "tokenuser": "106c2ac8a859bd82b05e13f9f9b336828432d02a8302ed3d80d5ad7c0c946d9d",
+      "username": "test10",
+      "email": "test10@gmail.com"
+    },
+    {
+      "tokenuser": "fcaef5c933be017e672b57edbb8622fc699af98150fac4e2633a6ba46d2edb87",
+      "username": "fer",
+      "email": "fer@gmail.com"
+    }
+  ]
+}
+
+######   CATALOGS ###################################################################
+#########W view catalogs by user
+POST http://127.0.0.1:47012/subscription/v1/visualization?access_token={{attest}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "show": "CATALOGS",
+    "by": "USER",
+    "tokenuser": "2c9ce8b943f3c620ca54b39fb37fefb725b99790684bf473eba4cf65a9d51bf6"
+}
+
+###
+{
+  "message": "Ok",
+  "data": [
+    {
+      "tokencatalog": "72fd0db64c98986496e898204f0c017978c28aced26cfe1f9925fe35a5cd4408",
+      "namecatalog": "Mas_Pruebas",
+      "created_at": "2018-05-16 16:07:11.004665",
+      "dispersemode": "SINGLE",
+      "encryption": false,
+      "father": "\/"
+    }
+  ]
+}
+
+######### view catalogs by group 
+POST http://127.0.0.1:47012/subscription/v1/viewCatalogs?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "option": "BYGROUP",
+    "keygroup": "4339e4caeef11958d8477ea43b9b364c2dc339aa"
+}
+
+###
+{
+  "message": "Ok",
+  "data": [
+    {
+      "tokencatalog": "72fd0db64c98986496e898204f0c017978c28aced26cfe1f9925fe35a5cd4408",
+      "namecatalog": "Mas_Pruebas",
+      "created_at": "2018-05-16 16:07:11.004665",
+      "dispersemode": "SINGLE",
+      "encryption": false,
+      "father": "\/"
+    },
+    {
+      "tokencatalog": "2a68e2c982445aefeb51ce07913c4eea88d0ef59a88c57174b58494b001ba579",
+      "namecatalog": "Pruebas_IDA",
+      "created_at": "2018-05-14 16:57:26.383922",
+      "dispersemode": "IDA",
+      "encryption": false,
+      "father": "\/"
+    }
+  ]
+}
+
+
+
+######   FILES ###################################################################
+#########L view archivos by catalog
+POST http://127.0.0.1:47012/subscription/v1/visualization?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "show": "FILES",
+    "by": "CATALOG",
+    "tokencatalog": "2a68e2c982445aefeb51ce07913c4eea88d0ef59a88c57174b58494b001ba579"
+}
+
+###
+{
+  "message": "Ok",
+  "data": [
+    {
+      "tokenfile": "23e195b5c59541b43dc96ceb8bd5741844a223aa",
+      "namefile": "file5.pdf",
+      "sizefile": 160107,
+      "chunks": 3,
+      "isciphered": true,
+      "created_at": "2018-05-18 21:01:46.667168"
+    },
+    {
+      "tokenfile": "60ae82e496895c0d5081802a337e9e0d56300372",
+      "namefile": "file26.pdf",
+      "sizefile": 275589,
+      "chunks": 3,
+      "isciphered": true,
+      "created_at": "2018-05-18 21:01:50.497043"
+    },
+    {
+      "tokenfile": "ad23cb831901ca0389ebd65352338bea320b8a37",
+      "namefile": "file11.pdf",
+      "sizefile": 257212,
+      "chunks": 3,
+      "isciphered": true,
+      "created_at": "2018-05-18 21:01:48.598901"
+    },
+    {
+      "tokenfile": "d1d1876497b930a098ebb32a1531a8d411f3451e",
+      "namefile": "file36.pdf",
+      "sizefile": 131909,
+      "chunks": 3,
+      "isciphered": true,
+      "created_at": "2018-05-18 21:01:44.14184"
+    }
+  ]
+}
+
+
+
+
+
+
+
+
+
+######   PUBLICATIONS ###################################################################
+######### view publications by user
+POST http://127.0.0.1:47012/subscription/v1/viewPublications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "option": "BYUSER",
+    "keyuser": "f06edc106e839173ccda58cdd26919a007fb1077"
+}
+
+######### view publications by catalog
+POST http://127.0.0.1:47012/subscription/v1/viewPublications?access_token={{atfer}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "option": "BYCATALOG",
+    "keycatalog": "84bac6287a026f275861ee33fcc55dbc9b65d2cc"
+}
+
+
+
+
+
+
+
+
+###################################################################################
+### para pruebas 
+
+######### obtiene los catalogos del usuario -------------
+GET http://127.0.0.1:47012/subscription/v1/catalogs/own/?access_token={{atbeto}} HTTP/1.1
+
+######### obtener los archivos de un catalogo ------------------ 
+GET http://127.0.0.1:47012/subscription/v1/catalogs/55a05a99a271b9cb37b37866ed36b60b6dd7233dde705a979e52ea755a133f45/files HTTP/1.1
+
+### obtiene todas las key de los archivos de un catalogo ------------------
+GET http://127.0.0.1:47012/subscription/v1/catalogs/095e0761a50a97cb26264f0d95a95331bc4c21d508fad7eb2346651c1c22c157/files_key HTTP/1.1
+
+###################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### elimina un catalogo
+DELETE http://127.0.0.1:47012/subscription/v1/catalogs/efcc899b710e58f8127e9a85e3dfd49560c1f613/delete HTTP/1.1
+
+### publica un archivo en el catalogo
+@keycatalog = b726059c806b7f78b5fa729a3e92a196fb62b48d
+@keyfile = 5889fe8578d2b4af6a919958c1e6eba5c7dd1395
+POST http://127.0.0.1:47012/subscription/v1/catalogs/{{keycatalog}}/publish HTTP/1.1
+Content-Type: application/json
+
+{
+    "keyfile": "{{keyfile}}"
+}
+
+######### obtiene los catalogos del usuario -------------
+@access_token = 26786d734743b1ffc543d1ff63727a0a5dc580a0b481c5086bb30044e18927d5
+@fbalderas = 5a2b564940fcda436379a6d18a614a8429a51fdb
+@beto = f06edc106e839173ccda58cdd26919a007fb1077
+@luis = 2b32437fa144457c93e98e0672e5951d9a56f401
+GET http://127.0.0.1:47012/subscription/v1/catalogs/own/?keyuser=08146088b1f8d0fefaecd3cddca812f304125afb HTTP/1.1
+
+### obtiene los catalogos a los que tiene acceso el usuario -------------
+GET http://127.0.0.1:47012/subscription/v1/catalogs/withaccess/?keyuser={{keyuser2}} HTTP/1.1
+
+
+
+######### obtener los archivos de un catalogo ------------------
+GET http://127.0.0.1:47012/subscription/v1/catalogs/{{keycatalog}}/files HTTP/1.1
+
+### obtiene todas las key de los archivos de un catalogo ------------------
+GET http://127.0.0.1:47012/subscription/v1/catalogs/{{keycatalog}}/files_key HTTP/1.1
+
+
+### obtiene todos los catalogos disponibles para suscripcion
+GET http://127.0.0.1:47012/subscription/v1/catalogs/available/?keyuser={{keyuser2}} HTTP/1.1
+
+### obtiene todos los catalogos dentro del grupo
+@torg = 5ac727e9fbedd09cd33a08c1bbee802c67464cc0
+GET http://127.0.0.1:47012/subscription/v1/catalogs/bygroup?keygroup={{torg}} HTTP/1.1
+
+SELECT * FROM catalogs AS c JOIN groups AS g ON c.father=g.keygroup WHERE g.keygroup='a3487ff8cd146d23845d93bd8d9ad3d478b5a30f';
+
+
+
+
+### obtiene la informacion de un catalogo
+GET http://127.0.0.1:47012/subscription/v1/catalogs/{{keycatalog}} HTTP/1.1
+
+
+### obtiene los catalogos de un usuario
+GET http://127.0.0.1:47012/subscription/v1/catalogs/user/?access_token={{access_token}} HTTP/1.1
+
+### crea un catalogo
+@id = 4
+@namecatalogue = catalog7
+@father = /
+@dispersemode = IDA
+@encryption = F
+ 
+POST http://127.0.0.1:47012/subscription/v1/catalogs/create HTTP/1.1
+Content-Type: application/json
+
+{
+    "catalog_name": "{{namecatalogue}}",
+    "dispersemode": "{{dispersemode}}",
+    "encryption": "{{encryption}}",
+    "father": "{{father}}",
+    "keyuser": "{{fbalderas}}"
+}
+
+### editar catalogo
+@catalog_id = bba21dd9f311c8c25591a6c9a3f7242260dc9db2
+PUT http://127.0.0.1:47012/subscription/v1/catalogs/edit HTTP/1.1
+Content-Type: application/json
+
+{
+    "access_token": "{{access_token}}",
+    "name": "{{namecatalogue}}",
+    "dispersemode": "{{dispersemode}}",
+    "encryption": "{{encryption}}",
+    "father": "{{father}}",
+    "catalog_id": "{{catalog_id}}"
+}
+
+
+
+
+
+### obtiene el catalogo de cierto usuario
+GET http://127.0.0.1:47012/subscription/v1/catalogs/1/user/1/?access_token={{access_token}} HTTP/1.1
+
+### susbcribirse a un catalogo
+POST http://127.0.0.1:47012/subscription/v1/catalogs/{{keycatalog}}/subscribe HTTP/1.1
+Content-Type: application/json
+
+{
+    "keyuser": "{{keyuser2}}"
+}
+### obtener notificaciones por usuario
+@keyuser2 = 5a2b564940fcda436379a6d18a614a8429a51jg4
+GET http://127.0.0.1:47012/subscription/v1/catalogs/notifications?keyuser={{keyuser2}} HTTP/1.1
+
+### aprobar suscripcion a un catalogo
+PUT http://127.0.0.1:47012/subscription/v1/catalogs/notifications/1/allow/ HTTP/1.1
+
+
+### obtener los subscriptores de un catalogo
+GET http://127.0.0.1:47012/subscription/v1/catalogs/1/subscribers?access_token={{access_token}}
+
+
+
+
+
+
+
+
+
+
+########################## groups
+
+
+
+### obtiene los grupos a los que tiene acceso el usuario
+GET http://127.0.0.1:47012/subscription/v1/groups/withaccess?keyuser={{fbalderas}} HTTP/1.1
+
+### obtiene todos los grupos disponibles para suscripcion
+GET http://127.0.0.1:47012/subscription/v1/groups/available?keyuser={{keyuser2}} HTTP/1.1
+
+### crea un grupo
+@namegroup = CINVESTAV
+@father = /
+@father2 = c308764210c295926e2eae49fcc590400bccd80d
+POST http://127.0.0.1:47012/subscription/v1/groups/create HTTP/1.1
+Content-Type: application/json
+
+{
+    "namegroup": "{{namegroup}}",
+    "keyuser": "{{fbalderas}}",
+    "father": "{{father}}"
+}
+
+### obtener notificaciones de grupo por usuario
+@keyuser2 = 5a2b564940fcda436379a6d18a614a8429a51jg4
+GET http://127.0.0.1:47012/subscription/v1/groups/notifications?keyuser={{keyuser2}} HTTP/1.1
+
+### elimina un grupo
+DELETE http://127.0.0.1:47012/subscription/v1/groups/149bfc7aeaed02ceabb039f9b4e8a5be26f98456/delete?access_token={{access_token}} HTTP/1.1
+
+
+
+
+
+
+### elimina todos los catalogos y grupos
+DELETE http://127.0.0.1:47012/subscription/v1/catalogs/delete_all HTTP/1.1
+
+
+
+http://192.168.1.69:47021-25
+
+
+
+
+java -jar -Xms1g -Xmx1g Up_FS.jar 26786d734743b1ffc543d1ff63727a0a5dc580a0b481c5086bb30044e18927d5  e051b9c3e9a6812c6e84c096ef5a2bd1812a0dfe 795731bc30ce010f6008148c2974d049eb28b18d IDA bob 2 c/ LTI false
+
+java -jar -Xms2g -Xmx2g Dw_FS.jar 26786d734743b1ffc543d1ff63727a0a5dc580a0b481c5086bb30044e18927d5  e051b9c3e9a6812c6e84c096ef5a2bd1812a0dfe f7c6c2cdb9ac19e2dfb5958d8134ab0abafdbff8 192.168.1.69:47013 2 1 ESA

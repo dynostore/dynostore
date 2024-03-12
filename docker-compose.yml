@@ -1,0 +1,244 @@
+version: "3"
+services:
+  #############
+  # Servicios de Painal
+  ############
+  metadata:
+    build:
+      args:
+        user: metadata
+        uid: 1000
+      context: ./metadata
+      dockerfile: Dockerfile
+    image: ddomizzi/metadata:v2
+    restart: unless-stopped
+    working_dir: /var/www/
+    volumes:
+      - ./metadatav2/app:/var/www
+    environment:
+      - AUTH=auth
+      - PUBSUB=pub_sub
+      - GATEWAY=apigateway
+  nginx:
+    image: nginx:1.17-alpine
+    restart: unless-stopped
+    ports:
+      - 8005:80
+    volumes:
+      - ./metadatav2/app:/var/www
+      - ./confs/nginx:/etc/nginx/conf.d
+
+  db_metadatav2:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'metadata-api'
+      # So you don't have to use root, but you can if you like
+      MYSQL_USER: 'metadata'
+      # You can use whatever password you like
+      MYSQL_PASSWORD: 'metadata2023'
+      # Password for root access
+      MYSQL_ROOT_PASSWORD: 'metadata2023'
+    expose:
+      # Opens port 3306 on the container
+      - '3306'
+      # Where our data will be persisted
+    volumes:
+      - my-db:/var/lib/mysql
+
+
+  apigateway: #API de Painal
+    image: ddomizzi/gateway:muyal
+    depends_on:
+      - auth
+    ports:
+      - "20500:80"
+    environment:
+      AUTH_HOST: auth
+      PUB_SUB_HOST: pub_sub
+      #METADATA_HOST: metadata
+    volumes:
+      - ./APIGateway/APIGateway/:/var/www/html/
+    restart: always
+  auth: #Authentication service
+    image: ddomizzi/auth:muyal
+    # docker build -f Auth -t apache:php_ssmtp .
+    depends_on:
+      - db_auth
+    expose:
+      - "80"
+    environment:
+      DB_USER: muyalmanager
+      DB_PASSWORD: niCi7unamltrubrlJusp
+      DB_NAME: auth
+      DB_HOST: db_auth
+      DB_PORT: 5432
+      AUTH_PORT: 47011
+      FRONTEND_PORT: 30004
+      SERVER_PORT: 30500
+      FRONTEND: localhost:22101/dashboard
+    volumes:
+      - ./auth/auth/:/var/www/html/
+    restart: always
+
+  db_auth: #Authentication database
+    image: ddomizzi/databaseauth:muyal
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: muyalmanager
+      POSTGRES_PASSWORD: niCi7unamltrubrlJusp
+    volumes:
+      - psql-auth:/var/lib/postgresql/data
+      - ./auth/schema-sql/auth.sql:/docker-entrypoint-initdb.d/auth.sql
+    restart: always
+  frontend: #Interfez gráfica
+    image: ddomizzi/frontend:muyal
+    ports:
+      - "20004:80"
+    depends_on:
+      - auth
+      - pub_sub
+      - apigateway
+    environment:
+      AUTH_HOST: auth
+      PUB_SUB_HOST: pub_sub
+      APIGATEWAY_HOST: apigateway
+      METADATA_HOST: metadata
+    volumes:
+      - ./frontend/frontend/:/var/www/html/
+    restart: always
+  db_pub_sub: #Base de datos del servicio de publicación y suscripción
+    image: ddomizzi/dbpubsub:muyal
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: pub_sub
+      POSTGRES_USER: muyalmanager
+      POSTGRES_PASSWORD: sicuhowradRaxi5R2ke6
+    volumes:
+      - psql-pubsub:/var/lib/postgresql/data
+      - ./pub_sub/schema-sql/pub_sub.sql:/docker-entrypoint-initdb.d/pub_sub.sql
+    restart: always
+  pub_sub: #Servicio de pub/sub 
+    image: ddomizzi/pubsub:muyal
+    depends_on:
+      - db_pub_sub
+    expose:
+      - "80"
+    environment:
+      DB_USER: muyalmanager
+      DB_PASSWORD: sicuhowradRaxi5R2ke6
+      DB_NAME: pub_sub
+      DB_HOST: db_pub_sub
+      DB_PORT: 5432
+      AUTH_HOST: auth
+      METADATA_HOST: metadata
+      APIGATEWAY: apigateway
+    volumes:
+      - ./pub_sub/pub_sub/:/var/www/html/
+    restart: always
+
+  ######################
+  # Servicios de almacenamiento
+  ######################
+  storage1:
+    image: ddomizzi/storage:muyal
+    ports:
+        - "20006:80"
+    #expose:
+        # - "80"
+    volumes:
+        - ./storage/storage1/:/var/www/html
+        - ./storage/storage1/c:/var/www/html/c
+        - ./storage/storage1/abekeys:/var/www/html/abekeys
+    environment:
+        NODE_ID: 1
+        FOLDER_UPLOADS: c/
+        FOLDER_ABEKEYS: abekeys/
+        URL_METADATA: metadata
+        GATEWAY: apigateway
+
+  storage2:
+    image: ddomizzi/storage:muyal
+    ports:
+        - "20007:80"
+    #expose:
+        # - "80"
+    volumes:
+        - ./storage/storage2/:/var/www/html
+        - ./storage/storage2/c:/var/www/html/c
+        - ./storage/storage2/abekeys:/var/www/html/abekeys
+    environment:
+        NODE_ID: 2
+        FOLDER_UPLOADS: c/
+        FOLDER_ABEKEYS: abekeys/
+        URL_METADATA: metadata
+        GATEWAY: apigateway
+  storage3:
+    image: ddomizzi/storage:muyal
+    ports:
+        - "20008:80"
+    #expose:
+        # - "80"
+    volumes:
+        - ./storage/storage3/:/var/www/html
+        - ./storage/storage3/c:/var/www/html/c
+        - ./storage/storage3/abekeys:/var/www/html/abekeys
+    environment:
+        NODE_ID: 3
+        FOLDER_UPLOADS: c/
+        FOLDER_ABEKEYS: abekeys/
+        URL_METADATA: metadata
+        GATEWAY: apigateway
+  storage4:
+    image: ddomizzi/storage:muyal
+    ports:
+        - "20009:80"
+    #expose:
+        # - "80"
+    volumes:
+        - ./storage/storage4/:/var/www/html
+        - ./storage/storage4/c:/var/www/html/c
+        - ./storage/storage4/abekeys:/var/www/html/abekeys
+    environment:
+        NODE_ID: 4
+        FOLDER_UPLOADS: c/
+        FOLDER_ABEKEYS: abekeys/
+        URL_METADATA: metadata
+        GATEWAY: apigateway
+  storage5:
+    image: ddomizzi/storage:muyal
+    ports:
+        - "20010:80"
+    #expose:
+        # - "80"
+    volumes:
+        - ./storage/storage5/:/var/www/html
+        - ./storage/storage5/c:/var/www/html/c
+        - ./storage/storage5/abekeys:/var/www/html/abekeys
+    environment:
+        NODE_ID: 5
+        FOLDER_UPLOADS: c/
+        FOLDER_ABEKEYS: abekeys/
+        URL_METADATA: metadata
+        GATEWAY: apigateway
+        
+volumes:  
+  psql-data-vc:
+    driver: local
+  sqlt-data-cm:
+    driver: local
+  psql-pubsub:
+    driver: local
+  psql-data-vc-api:
+    driver: local
+  mysql-db-data:
+    driver: local
+  psql-auth:
+    driver: local
+  psql-vc:
+    driver: local
+  my-db:
+    driver: local

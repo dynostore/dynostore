@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<company>
+    <department id="Presidencia">
+        <department id="Producción">
+            <department id="Ingeniería del Producto">
+            </department>
+            <department id="Planeación y control de producción">
+            </department>
+            <department id="Abastecimientos">
+            </department>
+            <department id="Fabricación">
+            </department>
+            <department id="Control de calidad">
+            </department>
+        </department>
+        <department id="Mercadotecnia">
+            <department id="Investigacion de mercados">
+            </department>
+            <department id="Planeacion y desarrollo del producto">
+                <department id="Marca">
+                </department>
+                <department id="Empaque">
+                </department>
+            </department>
+            <department id="Distribucion y Logistica">
+            </department>
+            <department id="Ventas">
+            </department>
+            <department id="Comunicacion">
+                <department id="Promocion de ventas">
+                </department>
+                <department id="Publicidad">
+                </department>
+            </department>
+        </department>
+    </department>
+</company>

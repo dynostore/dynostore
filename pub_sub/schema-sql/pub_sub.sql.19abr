@@ -1,0 +1,491 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 10.1
+-- Dumped by pg_dump version 10.1
+
+-- Started on 2018-02-18 18:17:30
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+
+--
+-- TOC entry 1 (class 3079 OID 12924)
+-- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
+--
+
+CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
+
+
+--
+-- TOC entry 2975 (class 0 OID 0)
+-- Dependencies: 1
+-- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
+
+
+SET search_path = public, pg_catalog;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+
+--
+-- TOC entry 206 (class 1259 OID 26149)
+-- Name: catalogs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE catalogs (
+    keycatalog character varying(100) NOT NULL,
+    namecatalog character varying(100),
+    created_at timestamp DEFAULT NOW(),
+    created_by character varying(100),
+    dispersemode character varying(25),
+    encryption boolean NOT NULL DEFAULT false,
+    father character varying(100),
+    UNIQUE(namecatalog),
+    PRIMARY KEY (keycatalog)
+);
+
+
+ALTER TABLE catalogs OWNER TO postgres;
+
+
+
+
+--
+-- TOC entry 223 (class 1259 OID 26224)
+-- Name: deleted; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE deleted (
+    "table" character varying(100),
+    key character varying(100),
+    name character varying(100),
+    created_at timestamp DEFAULT NOW()
+);
+
+
+ALTER TABLE deleted OWNER TO postgres;
+
+
+
+
+
+--
+-- TOC entry 198 (class 1259 OID 26117)
+-- Name: groups; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE groups (
+    keygroup character varying(100) NOT NULL,
+    namegroup character varying(100),
+    created_at timestamp DEFAULT NOW(),
+    father character varying(100) DEFAULT '0',
+    ispublic boolean NOT NULL DEFAULT false,
+    UNIQUE(namegroup),
+    PRIMARY KEY (keygroup)
+);
+
+
+ALTER TABLE groups OWNER TO postgres;
+
+--
+-- TOC entry 199 (class 1259 OID 26122)
+-- Name: groups_catalogs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+
+CREATE TABLE groups_catalogs (
+    id serial NOT NULL,
+    keygroup character varying(100),
+    keycatalog character varying(100),
+    status character varying(20),
+    isadmin boolean NOT NULL DEFAULT false,
+    isowner boolean NOT NULL DEFAULT false,
+    PRIMARY KEY(id),
+    UNIQUE(keygroup,keycatalog),
+    CONSTRAINT Ref_groups_catalogs_to_catalogs FOREIGN KEY (keycatalog) REFERENCES catalogs(keycatalog) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT Ref_groups_catalogs_to_groups FOREIGN KEY (keygroup) REFERENCES groups(keygroup) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+ALTER TABLE groups_catalogs OWNER TO postgres;
+
+
+
+CREATE TABLE groups_files (
+    id serial NOT NULL,
+    keygroup character varying(100),
+    keyfile character varying(100),
+    status character varying(20),
+    isowner boolean NOT NULL DEFAULT false,
+    PRIMARY KEY(id),
+    UNIQUE(keygroup,keyfile),
+    CONSTRAINT Ref_groups_files_to_groups FOREIGN KEY (keygroup) REFERENCES groups(keygroup) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+ALTER TABLE groups_files OWNER TO postgres;
+
+
+
+CREATE TABLE catalogs_files (
+    id serial NOT NULL,
+    keycatalog character varying(100),
+    keyfile character varying(100),
+    status character varying(20),
+    isowner boolean NOT NULL DEFAULT false,
+    PRIMARY KEY(id),
+    UNIQUE(keycatalog,keyfile),
+    CONSTRAINT Ref_catalogs_files_to_catalogs FOREIGN KEY (keycatalog) REFERENCES catalogs(keycatalog) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+ALTER TABLE catalogs_files OWNER TO postgres;
+
+
+
+CREATE TABLE users_files (
+    id serial NOT NULL,
+    keyuser character varying(100),
+    keyfile character varying(100),
+    status character varying(20),
+    isowner boolean NOT NULL DEFAULT false,
+    PRIMARY KEY(id),
+    UNIQUE(keyuser,keyfile)
+);
+
+
+ALTER TABLE users_files OWNER TO postgres;
+
+
+
+--
+-- TOC entry 202 (class 1259 OID 26132)
+-- Name: logs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE logs (
+    id integer NOT NULL,
+    operation character varying(100),
+    status character varying(100),
+    ipadress character varying(100),
+    tokinvol character varying(100),
+    created_at timestamp DEFAULT NOW()
+);
+
+
+ALTER TABLE logs OWNER TO postgres;
+
+--
+-- TOC entry 201 (class 1259 OID 26130)
+-- Name: logs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE logs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE logs_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2976 (class 0 OID 0)
+-- Dependencies: 201
+-- Name: logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE logs_id_seq OWNED BY logs.id;
+
+
+
+
+--
+-- TOC entry 222 (class 1259 OID 26219)
+-- Name: notification; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE notification (
+    keynotification integer NOT NULL,
+    destination_id character varying(100),
+    author_id character varying(100),
+    type integer,
+    created_at timestamp DEFAULT NOW()
+);
+
+
+ALTER TABLE notification OWNER TO postgres;
+
+
+
+
+
+
+--
+-- TOC entry 205 (class 1259 OID 26145)
+-- Name: push; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE push (
+    id integer NOT NULL,
+    keyuser character varying(100),
+    keyfile character varying(100),
+    keycatalog character varying(120),
+    created_at timestamp DEFAULT NOW(),
+    PRIMARY KEY(keyuser, keyfile, keycatalog)
+);
+
+
+ALTER TABLE push OWNER TO postgres;
+
+--
+-- TOC entry 204 (class 1259 OID 26143)
+-- Name: push_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE push_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE push_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2977 (class 0 OID 0)
+-- Dependencies: 204
+-- Name: push_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE push_id_seq OWNED BY push.id;
+
+
+
+
+--
+-- TOC entry 211 (class 1259 OID 26168)
+-- Name: subscribe; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE subscribe (
+    id integer NOT NULL,
+    keyuser character varying(100),
+    keycatalog character varying(100),
+    status character varying(20)
+);
+
+
+ALTER TABLE subscribe OWNER TO postgres;
+
+--
+-- TOC entry 210 (class 1259 OID 26166)
+-- Name: subscribe_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE subscribe_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE subscribe_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 2980 (class 0 OID 0)
+-- Dependencies: 210
+-- Name: subscribe_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE subscribe_id_seq OWNED BY subscribe.id;
+
+
+
+
+--
+-- TOC entry 214 (class 1259 OID 26183)
+-- Name: users_catalogs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+
+CREATE TABLE users_catalogs (
+    id serial NOT NULL,
+    keyuser character varying(100),
+    keycatalog character varying(100),
+    status character varying(20),
+    isadmin boolean NOT NULL DEFAULT false,
+    isowner boolean NOT NULL DEFAULT false,
+    PRIMARY KEY(id),
+    UNIQUE(keyuser,keycatalog),
+    CONSTRAINT Ref_users_catalogs_to_catalogs FOREIGN KEY (keycatalog) REFERENCES catalogs(keycatalog) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+ALTER TABLE users_catalogs OWNER TO postgres;
+
+
+
+
+
+--
+-- TOC entry 218 (class 1259 OID 26199)
+-- Name: users_groups; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE users_groups (
+    id serial NOT NULL,
+    keyuser character varying(100),
+    keygroup character varying(100),
+    status character varying(20),
+    isadmin boolean NOT NULL DEFAULT false,
+    isowner boolean NOT NULL DEFAULT false,
+    PRIMARY KEY(id),
+    UNIQUE(keyuser,keygroup),
+    CONSTRAINT Ref_users_groups_to_groups FOREIGN KEY (keygroup) REFERENCES groups (keygroup) ON DELETE CASCADE ON UPDATE CASCADE
+    
+);
+
+ALTER TABLE users_groups OWNER TO postgres;
+
+
+
+
+--
+-- TOC entry 2770 (class 2604 OID 26135)
+-- Name: logs id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY logs ALTER COLUMN id SET DEFAULT nextval('logs_id_seq'::regclass);
+
+
+--
+-- TOC entry 2771 (class 2604 OID 26148)
+-- Name: push id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY push ALTER COLUMN id SET DEFAULT nextval('push_id_seq'::regclass);
+
+
+
+
+
+--
+-- TOC entry 2774 (class 2604 OID 26171)
+-- Name: subscribe id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY subscribe ALTER COLUMN id SET DEFAULT nextval('subscribe_id_seq'::regclass);
+
+
+
+
+-- COPYs
+
+--
+-- TOC entry 2982 (class 0 OID 0)
+-- Dependencies: 201
+-- Name: logs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('logs_id_seq', 1, false);
+
+
+--
+-- TOC entry 2983 (class 0 OID 0)
+-- Dependencies: 204
+-- Name: push_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('push_id_seq', 1, false);
+
+
+
+--
+-- TOC entry 2986 (class 0 OID 0)
+-- Dependencies: 210
+-- Name: subscribe_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('subscribe_id_seq', 1, false);
+
+
+
+
+
+
+
+--
+-- TOC entry 2783 (class 2606 OID 26137)
+-- Name: logs logs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY logs
+    ADD CONSTRAINT logs_pkey PRIMARY KEY (id);
+
+
+
+
+
+--
+-- TOC entry 2797 (class 2606 OID 26223)
+-- Name: notification notification_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY notification
+    ADD CONSTRAINT notification_pkey PRIMARY KEY (keynotification);
+
+
+
+
+
+
+
+
+
+--
+-- TOC entry 2804 (class 2606 OID 26257)
+-- Name: push Ref_push_to_catalogs; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY push
+    ADD CONSTRAINT "Ref_push_to_catalogs" FOREIGN KEY (keycatalog) REFERENCES catalogs(keycatalog);
+
+
+
+
+
+--
+-- TOC entry 2806 (class 2606 OID 26267)
+-- Name: subscribe Ref_subscribe_to_catalogs; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY subscribe
+    ADD CONSTRAINT "Ref_subscribe_to_catalogs" FOREIGN KEY (keycatalog) REFERENCES catalogs(keycatalog);
+
+
+
+
+
+
+
+
+-- Completed on 2018-02-18 18:17:35
+--
+-- PostgreSQL database dump complete
+--
+

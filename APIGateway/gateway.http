@@ -1,0 +1,237 @@
+######   API GATEWAY #############################################################
+
+######   VARIABLES #############################################################
+@password = Admin1234
+
+@tanmi = 6dcc9d4d77a793e306a8c7c17e0cb43eb385342c74798c97740241e042843e51
+@atanmi = 2bca519216f4fbcd2d35df914e4e181ee8bbfcad1ec22b472318aa2abe0dbc22
+@talice = 0f562d77105bb2662de1ffc1d3f8cbe4d1866716499637cc0683a10db7e38c39
+@atalice = c3c2f04d28d6a515248df182f5902554fb72a3f9977d2310d67acd56dbce41f9
+
+
+
+
+###################################################################################
+######   AUTHENTICATION ###########################################################
+###################################################################################
+
+#########L obtener todos los usuarios
+GET http://127.0.0.1:8080/auth/v1/view/users/all?access_token={{atalice}} HTTP/1.1
+
+######### obtener usuario mediante tokenuser
+GET http://127.0.0.1:8080/auth/v1/users?tokenuser=bf98d0626d0f43972592a73f1229ea8844a0d2a84a91572813aa854f216f1654 HTTP/1.1
+
+######### obtener usuario mediante el access token
+GET http://127.0.0.1:8080/auth/v1/users?access_token=40dd3d0ff15ee1415c3fef3644287a6e9fbb41b5b2df2e07c28ed5070df7f6bd HTTP/1.1
+
+######### activar cuenta
+
+######### crear un usuario nuevo
+POST http://127.0.0.1:8080/auth/v1/users/create HTTP/1.1
+Content-Type: application/json
+
+{
+    "username": "fer",
+    "email": "fer@gmail.com",
+    "password": "{{password}}",
+    "tokenorg": "public"
+}
+
+### edit user
+
+######### delete user
+DELETE http://127.0.0.1:8080/auth/v1/users/a5cae9964c081f93f9a3af442ed3aceee6910625ca521073a97315ad4e5ecd1e/delete?access_token={{atanmi}} HTTP/1.1
+
+
+### obtener el acceso mediante correo y contraseña
+POST http://127.0.0.1:8080/auth/v1/users/login HTTP/1.1
+Content-Type: application/json
+
+{
+    "user": "Alice",
+    "password": "{{password}}"
+}
+
+######### get org users
+GET http://127.0.0.1:8080/auth/v1/view/users/org/{{aem}}?access_token={{atanmi}} HTTP/1.1
+
+
+
+
+
+
+######   HIRARCHY #################################################################
+###################################################################################
+
+#########DEV obtener todas las orgs
+GET http://127.0.0.1:8080/auth/v1/view/hierarchy/all HTTP/1.1
+
+#########L crea una org
+POST http://127.0.0.1:8080/auth/v1/hierarchy/create HTTP/1.1
+Content-Type: application/json
+
+{
+    "acronym": "AEM",
+    "fullname": "Agencia Espacial Mexicana",
+    "fathers_token": "/"
+}
+
+#########L  borra org recursivamente
+DELETE http://127.0.0.1:8080/auth/v1/hierarchy/efac4d7238f94361ea9b99a5c8eeadaec179b7fc8488c365c1da047ca0e09534/delete?access_token={{atadmin}} HTTP/1.1
+
+#########L ver organizacion desc (down)
+GET http://127.0.0.1:8080/auth/v1/hierarchy/237f8138c3997e7ddf09d2234d1c67f3d3e413ad479993b430173cbc87c0d5cf/down?access_token={{attest2}} HTTP/1.1
+
+#########L ver organizacion asc (up)
+GET http://127.0.0.1:8080/auth/v1/hierarchy/da9b0cfe1090008078da0398a26960832f88e913486742fd635a1c7ac38f8940/up?access_token={{attest2}} HTTP/1.1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###################################################################################
+######   PUBLICATION / SUBSCRIPTION ###############################################
+###################################################################################
+
+######   CATALOGS #################################################################
+###################################################################################
+###DEV get all catalogs
+GET http://127.0.0.1:8080/pub_sub/v1/catalogs/all HTTP/1.1
+
+#########   create catalog ###################################################
+POST http://127.0.0.1:8080/pub_sub/v1/catalogs/create?access_token={{atanmi}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "catalogname": "AnmiLandSat22",
+    "dispersemode": "SINGLE",
+    "encryption": "true",
+    "fathers_token": "/"
+}
+
+#########   edit catalog #####################################################
+
+#########   delete catalog ##################################################
+DELETE http://127.0.0.1:8080/pub_sub/v1/catalogs/db112b84b6bddfeb46c50a01d6cbe3d5b43908f35ee55a4098fe7a9e2c4c7f13/delete?access_token={{atanmi}} HTTP/1.1
+
+
+######   GROUPS #################################################################
+###################################################################################
+
+###DEV get all groups
+GET http://127.0.0.1:8080/pub_sub/v1/groups/all HTTP/1.1
+
+#########   create group ###################################################
+POST http://127.0.0.1:8080/pub_sub/v1/groups/create?access_token={{atanmi}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "groupname": "LandSat Test",
+    "fathers_token": "/"
+}
+
+#########   edit group #####################################################
+
+#########L   delete group ##################################################
+DELETE http://127.0.0.1:8080/pub_sub/v1/groups/8e28a43251b7131afcf3651524e6c62d189ce9bc446be36332066151b112d66e/delete?access_token={{atanmi}} HTTP/1.1
+
+
+
+
+
+###################################################################################
+######   PUBLICATIONS #############################################################
+###################################################################################
+
+######   GROUPS ###################################################################
+######### publish group to user
+POST http://127.0.0.1:8080/pub_sub/v1/publish/group/user?access_token={{atanmi}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "tokengroup": "d8cb0d1a0b3bd05d34a6ba3ada980a7f961da807767de4bf24503b3b323762aa",
+    "tokenuser": "6dcc9d4d77a793e306a8c7c17e0cb43eb385342c74798c97740241e042843e51"
+}
+
+#volver a publicar el mismo grupo
+
+
+
+
+###################################################################################
+######   SUBSCRIPTIONS #############################################################
+###################################################################################
+
+######   GROUPS ###################################################################
+######   G->U  #########################################################
+######### subscribe group to user
+POST http://127.0.0.1:8080/pub_sub/v1/subscribe/group/user?access_token={{atsus}} HTTP/1.1
+Content-Type: application/json
+
+{
+    "tokengroup": "537b3a9cb8c00177cd1779bc52d70361b8fedbe2bdd812dfa04152d331d52958",
+    "tokenuser": "{{tsus}}"
+}
+
+
+
+
+
+
+
+######   VISUALIZATION ############################################################
+###################################################################################
+
+######   GROUPS ###################################################################
+#########L view groups by user (subscribed)
+GET http://127.0.0.1:8080/pub_sub/v1/view/groups/user/{{tsus}}/subscribed?access_token={{atsus}} HTTP/1.1
+
+######### view groups by user (published)
+GET http://127.0.0.1:8080/pub_sub/v1/view/groups/user/{{tsus}}/published?access_token={{atsus}} HTTP/1.1
+
+######   USERS ###################################################################
+######### view users by group (subscribed)
+GET http://127.0.0.1:8080/pub_sub/v1/view/users/group/8888de121749dcdd2b0a11b7b12c4e356094e58877d67e87f2ee58d277914fac/subscribed?access_token={{atsus}} HTTP/1.1
+
+######### view users by group (published)
+GET http://127.0.0.1:8080/pub_sub/v1/view/users/group/e8b9bfb40e89637d9f8f19913b651c36884c9fbd509827a0a784bd3a42a57d9c/published?access_token={{atsus}} HTTP/1.1
+
+
+
+######   CATALOGS ###################################################################
+#144
+#########L view catalogs by user (subscribed)
+GET http://127.0.0.1:8080/pub_sub/v1/view/catalogs/user/{{tsus}}/subscribed?access_token={{atanmi}} HTTP/1.1
+
+#########w view catalogs by user (published)
+GET http://127.0.0.1:8080/pub_sub/v1/view/catalogs/user/{{tsus}}/published?access_token={{atanmi}} HTTP/1.1
+
+
+#########L view catalogs by group
+GET http://127.0.0.1:8080/pub_sub/v1/view/catalogs/group/{{glandsattest}}?access_token={{atsus}} HTTP/1.1
+
+
+
+######   FILES ###################################################################
+#########L view archivos by catalog
+GET http://127.0.0.1:8080/pub_sub/v1/view/files/catalog/{{canmilandsat}}?access_token={{atanmi}} HTTP/1.1
+
+#########L view archivos by usuario
+GET http://127.0.0.1:8080/pub_sub/v1/view/files/user/{{tanmi}}?access_token={{atanmi}} HTTP/1.1
