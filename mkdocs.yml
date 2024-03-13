@@ -1,0 +1,83 @@
+site_name: My Docs
+theme:
+  features:
+  features:
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+    - navigation.path
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+  font:
+    text: Open Sans
+    code: Roboto Mono
+  name: material
+  palette:
+    
+    # Palette toggle for light mode
+    - scheme: default
+      primary: teal
+      accent: light-green
+      toggle:
+        icon: material/brightness-7 
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: teal
+      accent: light-green
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+watch:
+  - mkdocs.yml
+  - README.md
+  - docs/
+
+extra:
+  version:
+    default: latest
+    provider: mike
+
+extra_css:
+  - css/extra.css
+  - css/mkdocstrings.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  #- mkdocs-click
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      repo_url_shorthand: true
+      user: proxystore
+      repo: proxystore
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
