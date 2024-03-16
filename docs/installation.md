@@ -43,7 +43,7 @@ docker compose up -d
 You can register a user but by default, it will not have rights even to view and manage data containers. Thus you should create an admin user. Please use the command below:
 
 ```bash
-docker exec -it cvat_server bash -ic 'python3 ~/manage.py createsuperuser'
+docker exec -it metadata bash -ic 'python3 ~/manage.py createsuperuser'
 ```
 
 ### Deploying a data container

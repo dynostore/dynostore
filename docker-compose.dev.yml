@@ -130,6 +130,9 @@ services:
 
   pub_sub: #Servicio de pub/sub 
     image: dynostore/pubsub:muyal
+    build: 
+      context: ./pub_sub
+      dockerfile: Dockerfile
     depends_on:
       - db_pub_sub
     expose:
@@ -148,66 +151,23 @@ services:
   ######################
   # Servicios de almacenamiento
   ######################
-  storage1:
-    image: dynostore/storage:muyal
-    ports:
-        - "20006:80"
-    volumes:
-        - ./storage/storage1/c:/data/objects
-        - ./storage/storage1/abekeys:/abekeys
-    environment:
-        FOLDER_UPLOADS: /data/objects
-        FOLDER_ABEKEYS: /abekeys
-        GATEWAY_HOST: apigateway
 
-  storage2:
-    image: dynostore/storage:muyal
+  datacontainer1:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
     ports:
-        - "20007:80"
+        - "20001:5000"
     volumes:
-        - ./storage/storage2/c:/data/objects
-        - ./storage/storage2/abekeys:/abekeys
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects/:/data/objects:rw
     environment:
-        FOLDER_UPLOADS: /data/objects
-        FOLDER_ABEKEYS: /abekeys
-        GATEWAY_HOST: apigateway
+      APIGATEWAY_HOST: apigateway
+    
 
-  storage3:
-    image: dynostore/storage:muyal
-    ports:
-        - "20008:80"
-    volumes:
-        - ./storage/storage3/c:/data/objects
-        - ./storage/storage3/abekeys:/abekeys
-    environment:
-        FOLDER_UPLOADS: /data/objects
-        FOLDER_ABEKEYS: /abekeys
-        GATEWAY_HOST: apigateway
 
-  storage4:
-    image: dynostore/storage:muyal
-    ports:
-        - "20009:80"
-    volumes:
-        - ./storage/storage4/c:/data/objects
-        - ./storage/storage4/abekeys:/abekeys
-    environment:
-        FOLDER_UPLOADS: /data/objects
-        FOLDER_ABEKEYS: /abekeys
-        GATEWAY_HOST: apigateway
-        
-  storage5:
-    image: dynostore/storage:muyal
-    ports:
-        - "20010:80"
-    volumes:
-        - ./storage/storage5/c:/data/objects
-        - ./storage/storage5/abekeys:/abekeys
-    environment:
-        FOLDER_UPLOADS: /data/objects
-        FOLDER_ABEKEYS: /abekeys
-        GATEWAY_HOST: apigateway
-        
+         
 volumes:  
   psql-data-vc:
     driver: local

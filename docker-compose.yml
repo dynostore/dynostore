@@ -13,7 +13,7 @@ services:
     volumes:
       - ./metadata/app:/var/www
     environment:
-      - GATEWAY_HOST=apigateway
+      - APIGATEWAY_HOST=apigateway
 
   nginx:
     image: nginx:1.17-alpine
@@ -58,7 +58,6 @@ services:
 
   auth: #Authentication service
     image: dynostore/auth:muyal
-    # docker build -f Auth -t apache:php_ssmtp .
     depends_on:
       - db_auth
     expose:
