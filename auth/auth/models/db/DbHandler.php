@@ -881,9 +881,12 @@ class DbHandler {
 			$stmt = $this->db->prepare($sql);
 			$stmt->bindParam(1, $acr, PDO::PARAM_STR);
 			$stmt->bindParam(2, $name, PDO::PARAM_STR);
+
+			#
+
 			$stmt->execute();
 			if ($stmt->rowCount()>0) {
-				$res = true;
+				$res = $stmt->fetch(PDO::FETCH_ASSOC);
 			}else{
 				$res = false;
 			}

@@ -16,7 +16,7 @@ RewriteRule ^auth/v1/users/a/([a-z0-9]{13})/([a-z0-9]{32,64})/?$ API.php?code=$1
 RewriteRule ^auth/v1/users/login/?$ API.php?type=20 [NC,L]
 RewriteRule ^auth/v1/view/users/org/([a-z0-9]{32,64})/?$ API.php?type=22&tokenorg=$1&access_token=$2 [QSA,NC,L]
 
- RewriteRule ^auth/v1/view/hierarchy/all/?$ API.php?type=2 [NC,L] 
+RewriteRule ^auth/v1/view/hierarchy/all/?$ API.php?type=2 [NC,L] 
 RewriteRule ^auth/v1/hierarchy/create/?$ API.php?type=23 [NC,L]
 RewriteRule ^auth/v1/hierarchy/([a-z0-9]{32,64})/delete/?$ API.php?type=24&tokenhierarchy=$1&access_token=$2 [QSA,NC,L]
 RewriteRule ^auth/v1/hierarchy/([a-z0-9]{32,64})/down/?$ API.php?type=27&tokenhierarchy=$1&access_token=$2 [QSA,NC,L]

@@ -270,7 +270,7 @@ class User extends REST
                     if ($res) {
                         //$msg = array("message" => "User created, please check your email.");
                         $msg = array("message" => "User created.");
-                        $this->response($this->json($msg), 201);
+                        $this->response($this->json($msg), 200);
                     } else {
                         $msg = array("message" => "Oops! An error occurred while registering.");
                         $this->response($this->json($msg), 400);
@@ -332,33 +332,15 @@ class User extends REST
 
                 // insert query 5b06d434c733c
                 $res = $db->insertUser($keyuser, $tokenuser, $username, $email, $passHash, $tokenorg, $access_token, $apikey, $isactive, $isadmin, $code);
-                $msg['msg'] = 'avsdgga';
-                $msg['keyuser'] = $keyuser;
-                $msg['username'] = $username;
-                $msg['email'] = $email;
-                $msg['passHash'] = $passHash;
-                $msg['tokenorg'] = $tokenorg;
+                $msg['msg'] = 'User created';
+        
                 $msg['access_token'] = $access_token;
                 $msg['apikey'] = $apikey;
-                $msg['isactive'] = $isactive;
-                $msg['isadmin'] = $isadmin;
-                $msg['code'] = $code;
-                $msg['res'] = $res;
+
                 if ($res) {
-                    // register log
-                    //$db->insertLog($operation, $access_token,$ip,$status);
-                    // send credentials by email
-                    $msg = array("message" => "User created.", "codigo" => 0);
-                    $this->response($this->json($msg), 201);
-                    /*$res = $this->prepareMail($email, $tokenuser, $username, $pass, $code, $ip);
-                    if ($res) {
-                        $msg = array("message" => "User created, please check your email.", "codigo" => 0);
-                        $msg = array("message" => "User created.");
-                        $this->response($this->json($msg), 201);
-                    } else {
-                        $msg = array("message" => "Cant send the email, please try again.", "codigo" => 1);
-                        $this->response($this->json($msg), 400);
-                    }*/
+
+                    $this->response($this->json($msg), 200);
+                 
                 } else {
                     $msg = array("message" => "Oops! An error occurred, please try again.", "codigo" => 1);
                     $this->response($this->json($msg), 400);
@@ -416,7 +398,7 @@ class User extends REST
                 if ($res) {
                     $msg = array("message" => "User created, please check your email.", "codigo" => 0);
                     //$msg = array("message" => "User created.");
-                    $this->response($this->json($msg), 201);
+                    $this->response($this->json($msg), 200);
                 } else {
                     $msg = array("message" => "Cant send the email, please try again.", "codigo" => 1);
                     $this->response($this->json($msg), 400);
@@ -678,7 +660,7 @@ class User extends REST
                                 //$msg['tokenuser'] = $tokenuser;
                                 //$msg['access_token'] = $access_token;
                                 $msg['username'] = $username;
-                                $this->response($this->json($msg), 201);
+                                $this->response($this->json($msg), 200);
                             } else {
                                 $msg = array("message" => "Oops! An error occurred while registering.");
                                 $this->response($this->json($msg), 400);
@@ -1116,7 +1098,7 @@ class User extends REST
                                 //$msg['message'] = "Created org ".$this->_request['acronym'];
                                 $msg['message'] = "Organization Created";
                                 $msg['tokenhierarchy'] = $tokenH;
-                                $this->response($this->json($msg), 201);
+                                $this->response($this->json($msg), 200);
                             } else {
                                 $msg = array("message" => "Something went wrong.112");
                                 $this->response($this->json($msg), 406);
@@ -1131,7 +1113,7 @@ class User extends REST
                                 $msg['message'] = "Created: " . $this->_request['acronym'];
                                 $msg['tokenhierarchy'] = $tokenH;
                                 $msg['token organization'] = $father['tokenorg'];
-                                $this->response($this->json($msg), 201);
+                                $this->response($this->json($msg), 200);
                             } else {
                                 $msg = array("message" => "Something went wrong.122");
                                 $this->response($this->json($msg), 406);
@@ -1195,7 +1177,7 @@ class User extends REST
                     }
                     break;
                 case 'CHECK':
-                    if (isset($this->_request['acronym']) && isset($this->_request['fullname']) && isset($this->_request['fathers_token'])) {
+                    if (isset($this->_request['acronym']) && isset($this->_request['fullname'])) {
                         $res = $this->hierarchyExist($this->_request['acronym'], $this->_request['fullname']);
                         if (!$res) {
                             $msg['message'] = "Acronym and name available.";
@@ -1342,6 +1324,7 @@ class User extends REST
         $data = $db->hierarchyExist($acron, $name);
         if ($data) {
             $msg['message'] = "Cant use this acronym or name.";
+            $msg["data"] = $data;
             $msg['code'] = 0;
             $this->response($this->json($msg), 400);
         }
