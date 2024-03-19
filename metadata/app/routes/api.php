@@ -22,7 +22,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::get('files/{tokenuser}/exists/{keyfile}', [FileController::class, 'exists']);
 Route::delete('files/{tokenuser}/delete/{keyfile}', [FileController::class, 'delete']);
-Route::post('files/push', [FileController::class, 'push']);
+Route::put('{tokenuser}/{tokencatalog}/objects/{keyfile}', [FileController::class, 'push']);
 Route::post('files/pull', [FileController::class, 'pull']);
 
 Route::post('servers/{tokenuser}', [ServerController::class, 'store']);

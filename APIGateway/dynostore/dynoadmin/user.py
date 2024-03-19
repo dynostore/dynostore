@@ -47,10 +47,12 @@ def create_user(username, password, email):
     }
     
     response = requests.post(url, json=data)
+    
+    print(response.json())
 
     if response.status_code != 200:
         raise Exception("Error creating  user: " + response.json()['data']['message'])
     
     return response.json()
     
-#create_user("user2", "Auja7f8y.24", "default2@default.com")
+#create_user("user5455", "Auja7f8y.24", "default555@default.com")

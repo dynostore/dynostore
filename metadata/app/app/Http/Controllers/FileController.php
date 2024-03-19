@@ -24,97 +24,96 @@ class FileController extends Controller
      * @param  \App\Http\Requests\StoreFileRequest  $request
      * @return \Illuminate\Http\Response
      */
-    public function push(Request $request)
-    {   
+    public function push(Request $request, $tokenuser, $tokencatalog, $keyfile)
+    {
         $keys = array();
         $file = new File;
         $file->name = $request->input('name');
+        $file->keyfile = $keyfile;
         $file->size = $request->input('size');
         $file->hash = $request->input('hash');
-        $file->keyfile = $request->input('key');
         $file->is_encrypted = $request->input('is_encrypted');
         $file->chunks = $request->input('chunks');
         $file->required_chunks = $request->has('required_chunks') ? $request->input('required_chunks') : 1;
-        $file->disperse = $request->input('disperse');
+        $file->disperse = $file->required_chunks > 1 ? "SINGLE" : "IDA";
 
-        $tokencatalog = $request->input('catalog');
-
-        $tokenuser = $request->input('tokenuser');
-        $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
-        $response = Http::get($url);
-
-        if ($response->status() == 404) {
-            return response()->json([
-                "message" => "Unauthorized"
-            ], 401);
-        }
-
-        $url = "http://" . env('PUBSUB') . '/subscription/v1/catalogs/' . $tokencatalog;
-        $response = Http::get($url);
-
-
-        if ($response->status() == 404) {
-            return response()->json([
-                "message" => "Catalog not found"
-            ], 404);
-        } else {
+        try {
             $nodes = Server::where('up', True)->get()->toArray();
             foreach ($nodes as $key => $node) {
                 $nodes[$key]["used"] = FilesInServer::where('server_id', $node["id"])
-                                            ->join('files', 'files.keyfile', '=', 'files_in_servers.keyfile')
-                                            ->sum('size');
-            
+                    ->join('files', 'files.keyfile', '=', 'files_in_servers.keyfile')
+                    ->sum('size');
+
                 $nodes[$key]["used"] += Chunk::where('server_id', $node["id"])->sum('size');
                 #File::where('server_id', $node["id"])->sum('size');
             }
 
-            try {
-                $file->save();
-            } catch (QueryException $e) {
+            if (empty ($nodes)) {
                 return response()->json([
-                    "message" => $e->getMessage()
+                    "message" => "Not enough servers to store the file"
                 ], 409);
             }
 
-            $data = Server::allocate($file, $nodes);
+        } catch (QueryException $e) {
+            return response()->json([
+                "message" => $e->getMessage()
+            ], 409);
+        }
 
-            if ($file->is_encrypted == 1) {
-                $servers_abekeys = Server::emplazador(1, $nodes, NODES_REQUIRED_PUSH);
-                $temp = $servers_abekeys[0]["url"] . "/upload.php?file=abekeys/" . $file->keyfile;
-                $down_link = $servers_abekeys[0]["url"] . "abekeys/" . $file->keyfile;
+        try {
+            $file->save();
+        } catch (QueryException $e) {
+            return response()->json([
+                "message" => $e->getMessage()
+            ], 409);
+        }
 
-                $abekey = new Abekey;
-                $abekey->keyfile = $file->keyfile;
-                $abekey->url = $down_link;
-                $abekey->save();
+        $data = Server::allocate($file, $nodes);
 
-                
-                $keys[] = array("route" => $temp);
-            }
+        if ($file->is_encrypted == 1) {
+            $servers_abekeys = Server::emplazador(1, $nodes, NODES_REQUIRED_PUSH);
+            $temp = $servers_abekeys[0]["url"] . "/upload.php?file=abekeys/" . $file->keyfile;
+            $down_link = $servers_abekeys[0]["url"] . "abekeys/" . $file->keyfile;
 
-            $url = "http://" . env('GATEWAY') . '/pub_sub/v1/catalogs/'. $tokencatalog .'/files/upload';
+            $abekey = new Abekey;
+            $abekey->keyfile = $file->keyfile;
+            $abekey->url = $down_link;
+            $abekey->save();
+
+
+            $keys[] = array("route" => $temp);
+        }
+
+        /*try {
+            $url = "http://" . env('GATEWAY') . '/pub_sub/v1/catalogs/' . $tokencatalog . '/files/upload';
             $response = Http::post($url, ["keyfile" => $file->keyfile]);
 
 
-            if($response->status() != 201){
+            if ($response->status() != 201) {
                 return response()->json([
                     "message" => "Error adding file to catalog"
                 ], 500);
             }
 
+        } catch (QueryException $e) {
             return response()->json([
-                "message" => "File record created",
-                "file" => $file,
-                "nodes" => $data,
-                "keys" => $keys,
-            ], 201);
-        }
+                "message" => $e->getMessage()
+            ], 409);
+        }*/
+
+        return response()->json([
+            "message" => "File record created",
+            "file" => $file,
+            "nodes" => $data,
+            "keys" => $keys,
+        ], 201);
+
 
     }
 
     public function pull(Request $request)
     {
-        if (isset($request->key) && isset($request->tokenuser)) {
+        if (isset ($request->key) && isset ($request->tokenuser)) {
             $keyfile = $request->key;
             $tokenuser = $request->tokenuser;
 
@@ -127,7 +126,7 @@ class FileController extends Controller
                     "message" => "Unauthorized"
                 ], 401);
             }
-            
+
             try {
                 $file = File::where('keyfile', $keyfile)->first();
             } catch (QueryException $e) {
@@ -135,10 +134,10 @@ class FileController extends Controller
                     "message" => "File not found"
                 ], 404);
             }
-            
+
             $data = Server::locate($tokenuser, $file);
 
-            if($file->is_encrypted == 1){
+            if ($file->is_encrypted == 1) {
                 $abekey = Abekey::where('keyfile', $keyfile)->first();
                 $data["abekey"] = $abekey->url;
             }
@@ -147,7 +146,7 @@ class FileController extends Controller
                 "message" => "File record found",
                 "data" => $data
             ], 200);
-            
+
 
 
         } else {
@@ -162,7 +161,7 @@ class FileController extends Controller
 
     public function exists(Request $request, $tokenuser, $keyfile)
     {
-        
+
         $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
         $response = Http::get($url);
 
@@ -191,7 +190,7 @@ class FileController extends Controller
 
     public function delete(Request $request, $tokenuser, $keyfile)
     {
-        
+
         $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
         $response = Http::get($url);
 
@@ -208,7 +207,7 @@ class FileController extends Controller
             $servers = Server::locate($tokenuser, $file)["routes"];
             $error = false;
 
-            foreach($servers as $server){
+            foreach ($servers as $server) {
                 $url = $server["server"] . "/delete.php?file=" . $keyfile . "&tokenuser=" . $tokenuser;
                 $response = Http::delete($url);
 
@@ -225,12 +224,12 @@ class FileController extends Controller
                 ], 404);
             }
 
-            if($error){
+            if ($error) {
                 return response()->json([
                     "message" => "Error deleting file on server. Metadata removed correctly."
                 ], 200);
             }
-            
+
             return response()->json([
                 "message" => "Metadata and file deleted",
             ], 200);

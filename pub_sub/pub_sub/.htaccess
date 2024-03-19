@@ -3,64 +3,7 @@ RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-RewriteCond %{QUERY_STRING} access_token=(\w+)
-RewriteRule ^subscription/v1/catalogs/?$ api.php?type=60&access_token=$1 [QSA,NC,L]
-RewriteRule ^subscription/v1/catalogs/([a-z0-9]{32,64})/?$ api.php?type=15&id=$1&access_token=$2 [QSA,NC,L]
-RewriteRule ^subscription/v1/groups/?$ api.php?type=70&access_token=$1 [QSA,NC,L]
-RewriteRule ^subscription/v1/visualization/?$ api.php?type=80&access_token=$1 [QSA,NC,L]
-RewriteRule ^subscription/v1/publications/?$ api.php?type=81&access_token=$1 [QSA,NC,L]
-RewriteRule ^subscription/v1/subscriptions/?$ api.php?type=82&access_token=$1 [QSA,NC,L]
-RewriteRule ^subscription/v1/catalogs/own/?$ api.php?type=10&access_token=$1 [QSA,NC,L]
-RewriteRule ^subscription/v1/catalogs/([a-z0-9]{32,64})/files/?$ api.php?type=21&tokencatalog=$1 [QSA,NC,L]
-
-
-RewriteRule ^subscription/v1/view/catalog/([a-z0-9]{32,64})/?$ api.php?type=200&tokencatalog=$1&access_token=$1 [QSA,NC,L]
-
-RewriteRule ^subscription/v1/catalogs/([a-z0-9]{32,64})/files/upload/?$ api.php?type=20&keyresource=$1 [QSA,NC,L]
-
-RewriteRule ^subscription/v1/publiccatalogs/?$ api.php?type=55&keyuser=$1 [QSA,NC,L]
-
-
-# TEST
-RewriteRule ^subscription/v1/view/catalogsbyuser/?$ api.php?type=980&access_token=$1 [QSA,NC,L]
-RewriteRule ^subscription/v1/view/catalogsbyuser/published?$ api.php?type=981&access_token=$1 [QSA,NC,L]
-# DEV
-RewriteRule ^subscription/v1/catalogs/all/?$ api.php?type=100 [NC,L]
-RewriteRule ^subscription/v1/groups/all/?$ api.php?type=101 [NC,L]
-
-
-
-#RewriteRule ^subscription/v1/groups/test/?$ api.php?type=102 [QSA,NC,L]
-RewriteRule ^subscription/v1/catalogs/files/?$ api.php?type=999 [QSA,NC,L]
-#
-#RewriteCond %{QUERY_STRING} keyuser=(\w+)
-#RewriteRule ^subscription/v1/catalogs/withaccess/?$ api.php?type=11&keyuser=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/catalogs/subscribed/?$ api.php?type=12&access_token=$1 [QSA,NC,L]
-#RewriteCond %{QUERY_STRING} keygroup=(\w+)
-#RewriteRule ^subscription/v1/catalogs/bygroup/?$ api.php?type=13&keygroup=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/catalogs/available/?$ api.php?type=14&keyuser=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/catalogs/create/?$ api.php?&type=16 [NC,L]
-#RewriteRule ^subscription/v1/catalogs/edit/?$ api.php?&type=17&id=$1 [NC,L]
-#RewriteRule ^subscription/v1/catalogs/([a-z0-9]{32,64})/delete/?$ api.php?type=18&id=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/catalogs/([a-z0-9]{32,64})/files_key/?$ api.php?type=22&keyresource=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/catalogs/([a-z0-9]{32,64})/subscribe/?$ api.php?type=23&keyresource=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/catalogs/notifications/?$ api.php?type=25&keyuser=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/catalogs/notifications/([0-9]+)/allow/?$ api.php?type=26&key=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/catalogs/notifications/([0-9]+)/deny/?$ api.php?type=27&key=$1 [QSA,NC,L]
-#
-#RewriteRule ^subscription/v1/groups/own/?$ api.php?type=30&access_token=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/subscribed/?$ api.php?type=31&access_token=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/withaccess?$ api.php?type=32&keyuser=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/([a-zA-Z0-9]{32,64})/?$ api.php?type=33&access_token=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/available?$ api.php?type=34&keyuser=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/create/?$ api.php?type=35 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/edit/?$ api.php?type=36 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/([a-zA-Z0-9]{32,64})/delete/?$ api.php?type=40&id=$1&access_token=$2 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/([a-z0-9]{32,64})/subscribe/?$ api.php?type=45&keygroup=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/notifications/?$ api.php?type=46&keyuser=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/notifications/([0-9]+)/allow/?$ api.php?type=47&key=$1 [QSA,NC,L]
-#RewriteRule ^subscription/v1/groups/notifications/([0-9]+)/deny/?$ api.php?type=48&key=$1 [QSA,NC,L]
-
-
+RewriteCond %{QUERY_STRING} tokenuser=(\w+)
+RewriteRule ^catalog/([a-z0-9]{1,256})/?$ api.php?type=1&catalog=$1&tokenuser=$2 [QSA,NC,L]
 
 </IfModule>

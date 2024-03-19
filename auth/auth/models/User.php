@@ -336,6 +336,7 @@ class User extends REST
         
                 $msg['access_token'] = $access_token;
                 $msg['apikey'] = $apikey;
+                $msg['user_token'] = $tokenuser;
 
                 if ($res) {
 

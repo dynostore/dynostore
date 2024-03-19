@@ -1146,12 +1146,13 @@ class DbHandler {
 
 	public function validateCatalogExist($name,$tokenuser) {
 		try {
-			$sql = "SELECT * FROM catalogs WHERE namecatalog=:na;";
+			$sql = "SELECT * FROM catalogs AS c INNER JOIN users_catalogs as uc ON uc.tokencatalog = c.tokencatalog WHERE namecatalog=:na AND uc.token_user=:tu;";
 			$stmt = $this->db->prepare($sql);
 			$stmt->bindParam(":na", $name, PDO::PARAM_STR);
+			$stmt->bindParam(":tu", $tokenuser, PDO::PARAM_STR);
 			$stmt->execute();
 			if ($stmt->rowCount() == 1) {
-				$res = true;
+				$res = $stmt->fetch(PDO::FETCH_ASSOC);
 			}else{
 				$res = false;
 			}

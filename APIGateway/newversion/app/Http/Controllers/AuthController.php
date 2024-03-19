@@ -68,12 +68,8 @@ class AuthController extends Controller
 
     public function createUser(Request $request)
     {
-        // ...
-        # Make request to auth service
-        $client = new \GuzzleHttp\Client();
         $url_auth = 'http://' . env('AUTH_HOST') . '/auth/v1/users/create';
         
-
         $response = Http::post($url_auth, [
             'option' => 'NEW',
             'email' => $request->email,
@@ -94,6 +90,26 @@ class AuthController extends Controller
                 'message' => 'User creation failed',
                 'data' => json_decode($response->body())
             ], 500);
+        }
+    }
+
+    public function getUser(Request $request, $tokenuser)
+    {
+        $url_auth = 'http://' . env('AUTH_HOST') . '/auth/v1/user?tokenuser=' . $tokenuser;
+        $response = Http::get($url_auth);
+
+        if($response->status() == 200){
+            return response()->json([
+                'status' => 'success',
+                'message' => 'User found',
+                'data' => json_decode($response->body())
+            ], 200);
+        }else{
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User not found',
+                'data' => json_decode($response->body())
+            ], 404);
         }
     }
 }

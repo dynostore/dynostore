@@ -19,7 +19,7 @@ class ServerController extends Controller
     public function index($tokenuser)
     {
         //
-        $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
+        $url = "http://" . env('AUTH_HOST') . '/auth/v1/user?tokenuser=' . $tokenuser;
         $response = Http::get($url);
 
 
@@ -35,7 +35,7 @@ class ServerController extends Controller
 
     public function statistics($tokenuser)
     {
-        $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
+        $url = "http://" . env('AUTH_HOST_HOST') . '/auth/v1/user?tokenuser=' . $tokenuser;
         $response = Http::get($url);
 
 
@@ -72,7 +72,7 @@ class ServerController extends Controller
     public function store(Request $request, $tokenuser)
     {
         //
-        $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
+        $url = "http://" . env('AUTH_HOST') . '/auth/v1/user?tokenuser=' . $tokenuser;
         $response = Http::get($url);
 
 

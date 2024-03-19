@@ -14,15 +14,16 @@ services:
       - ./metadata/app:/var/www
     environment:
       - APIGATEWAY_HOST=apigateway
+      - AUTH_HOST=auth
 
-  nginx:
+  metadata_server:
     image: nginx:1.17-alpine
     restart: unless-stopped
     ports:
       - 8005:80
     volumes:
       - ./metadata/app:/var/www
-      - ./confs/nginx:/etc/nginx/conf.d
+      - ${PWD}/metadata/default.conf:/etc/nginx/conf.d/default.conf
 
   db_metadata:
     image: mysql:5.7
@@ -62,7 +63,7 @@ services:
     environment:
       AUTH_HOST: auth
       PUB_SUB_HOST: pub_sub
-      METADATA_HOST: metadata
+      METADATA_HOST: metadata_server
       APIGATEWAY_HOST: webgateway
     volumes:
       - ./APIGateway/newversion/:/var/www/

@@ -19,7 +19,12 @@ def create_user(
     try:
         results = user.create_user(username, password, email)
         typer.secho(
-            f'User created with token "{results["data"]["access_token"]}"',
+            f'User created with token "{results["data"]["user_token"]}"',
+            fg=typer.colors.GREEN,
+        )
+        
+        typer.secho(
+            f'Access token "{results["data"]["access_token"]}"',
             fg=typer.colors.GREEN,
         )
         
