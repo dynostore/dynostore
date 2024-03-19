@@ -33,6 +33,7 @@ Route::prefix('pubsub')->group(function () {
 
 Route::prefix('storage')->group(function () {
     Route::put('{tokenuser}/{catalog}/{keyobject}', [StorageController::class, 'push']);
+    Route::get('{tokenuser}/{keyobject}', [StorageController::class, 'pull']);
     #Route::get('{tokenuser}/{tokencatalog}/object/{keyobject}', [StoreController::class, 'getFile']);
     #Route::delete('object/{keyobject}', [StoreController::class, 'deleteFile']);
 });

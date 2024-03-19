@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Http;
 
 define('NODES_REQUIRED_PUSH', 5);
+define('AUTH', env('AUTH_HOST'));
 
 class FileController extends Controller
 {
@@ -26,6 +27,16 @@ class FileController extends Controller
      */
     public function push(Request $request, $tokenuser, $tokencatalog, $keyfile)
     {
+        $url = "http://" . AUTH . '/auth/v1/user?tokenuser=' . $tokenuser;
+
+        $response = Http::get($url);
+
+        if ($response->status() == 404) {
+            return response()->json([
+                "message" => "Unauthorized"
+            ], 401);
+        }
+        
         $keys = array();
         $file = new File;
         $file->name = $request->input('name');
@@ -35,7 +46,7 @@ class FileController extends Controller
         $file->is_encrypted = $request->input('is_encrypted');
         $file->chunks = $request->input('chunks');
         $file->required_chunks = $request->has('required_chunks') ? $request->input('required_chunks') : 1;
-        $file->disperse = $file->required_chunks > 1 ? "SINGLE" : "IDA";
+        $file->disperse = $file->chunks == 1 ? "SINGLE" : "IDA";
 
         try {
             $nodes = Server::where('up', True)->get()->toArray();
@@ -81,12 +92,12 @@ class FileController extends Controller
             ], 400);
         }
 
-        $data = Server::allocate($file, $nodes);
+        $data = Server::allocate($file, $nodes, $tokenuser);
 
         if ($file->is_encrypted == 1) {
             $servers_abekeys = Server::emplazador(1, $nodes, NODES_REQUIRED_PUSH);
-            $temp = $servers_abekeys[0]["url"] . "/upload.php?file=abekeys/" . $file->keyfile;
-            $down_link = $servers_abekeys[0]["url"] . "abekeys/" . $file->keyfile;
+            $temp = $servers_abekeys[0]["url"] . '/abekeys/' . $file->keyfile . '/' . $tokenuser;
+            $down_link = $servers_abekeys[0]["url"] . '/abekeys/' . $file->keyfile . '/' . $tokenuser;
 
             $abekey = new Abekey;
             $abekey->keyfile = $file->keyfile;
@@ -107,49 +118,39 @@ class FileController extends Controller
 
     }
 
-    public function pull(Request $request)
+    public function pull(Request $request, $tokenuser, $keyfile)
     {
-        if (isset ($request->key) && isset ($request->tokenuser)) {
-            $keyfile = $request->key;
-            $tokenuser = $request->tokenuser;
 
+        $url = "http://" . AUTH . '/auth/v1/user?tokenuser=' . $tokenuser;
 
-            $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
-            $response = Http::get($url);
+        $response = Http::get($url);
 
-            if ($response->status() == 404) {
-                return response()->json([
-                    "message" => "Unauthorized"
-                ], 401);
-            }
-
-            try {
-                $file = File::where('keyfile', $keyfile)->first();
-            } catch (QueryException $e) {
-                return response()->json([
-                    "message" => "File not found"
-                ], 404);
-            }
-
-            $data = Server::locate($tokenuser, $file);
-
-            if ($file->is_encrypted == 1) {
-                $abekey = Abekey::where('keyfile', $keyfile)->first();
-                $data["abekey"] = $abekey->url;
-            }
-
+        if ($response->status() == 404) {
             return response()->json([
-                "message" => "File record found",
-                "data" => $data
-            ], 200);
-
-
-
-        } else {
-            return response()->json([
-                "message" => "Bad request"
-            ], 400);
+                "message" => "Unauthorized"
+            ], 401);
         }
+
+
+        try {
+            $file = File::where('keyfile', $keyfile)->first();
+        } catch (QueryException $e) {
+            return response()->json([
+                "message" => "File not found"
+            ], 404);
+        }
+
+        $data = Server::locate($tokenuser, $file);
+
+        if ($file->is_encrypted == 1) {
+            $abekey = Abekey::where('keyfile', $keyfile)->first();
+            $data["abekey"] = $abekey->url;
+        }
+
+        return response()->json([
+            "message" => "File record found",
+            "data" => $data
+        ], 200);
 
     }
 

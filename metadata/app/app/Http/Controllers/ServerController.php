@@ -92,49 +92,4 @@ class ServerController extends Controller
             "message" => "Server record created"
         ], 201);
     }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  \App\Models\Server  $server
-     * @return \Illuminate\Http\Response
-     */
-    public function show(Server $server)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Models\Server  $server
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(Server $server)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \App\Http\Requests\UpdateServerRequest  $request
-     * @param  \App\Models\Server  $server
-     * @return \Illuminate\Http\Response
-     */
-    public function update(UpdateServerRequest $request, Server $server)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Models\Server  $server
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy(Server $server)
-    {
-        //
-    }
 }

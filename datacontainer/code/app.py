@@ -10,8 +10,8 @@ from caching import LRUCacheStorage
 app = Flask(__name__)
 app.config["DEBUG"] = True
 
-API_GATEWAY = os.getenv('APIGATEWAY_HOST')
-URL_AUTH = "http://" + API_GATEWAY + '/auth/v1/users?tokenuser='
+AUTH_HOST = os.getenv('AUTH_HOST')
+URL_AUTH = "http://" + AUTH_HOST + '/auth/v1/user?tokenuser='
 
 storage = LRUCacheStorage(100000)
 
@@ -28,7 +28,7 @@ def upload_object(objectkey, usertoken):
         bytes_ = request.data 
         try:
             storage.put(objectkey, bytes_)
-            return jsonify({"message": "Data successfully uploaded"}), 200         
+            return jsonify({"message": "Data successfully uploaded"}), 201     
         except Exception as e:
             return jsonify({"error": "Error uploading data. Exception " + str(e)}), 500      
         

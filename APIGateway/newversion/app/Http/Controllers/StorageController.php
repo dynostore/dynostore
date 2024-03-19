@@ -51,6 +51,23 @@ class StorageController extends Controller
             'disperse' => $request->disperse
         ]);
 
+        $data = json_decode($response->body());
+        $nodes = $data->nodes;
+        
+        foreach ($nodes as $node) {
+            $url = $node->route;
+
+            $response = Http::withBody(
+                $request->data, 'application/octet-stream'
+            )->put($url);
+
+            if ($response->status() != 201) {
+                return response()->json([
+                    "message" => "Error pushing object to storage"
+                ], 500);
+            }
+        }
+
         #Insert file in pubsub and upload object in storage 
         if ($response->status() != 201) {
             return response()->json([
@@ -61,8 +78,6 @@ class StorageController extends Controller
 
         $url = "http://" . PUBSUB . '/catalog/' . $tokencatalog . '/object/' . $keyobject;
         $response = Http::post($url);
-
-        #print_r($response->body());
 
 
         if ($response->status() != 201 && $response->status() != 302) {
@@ -78,5 +93,51 @@ class StorageController extends Controller
             'data' => json_decode($response->body())
         ], 201);
 
+    }
+
+    public function pull(Request $request, $tokenuser, $keyobject)
+    {
+        $url = "http://" . AUTH . '/auth/v1/user?tokenuser=' . $tokenuser;
+
+        $response = Http::get($url);
+
+        if ($response->status() == 404) {
+            return response()->json([
+                "message" => "Unauthorized"
+            ], 401);
+        }
+
+        $url = 'http://' . METADATA . '/api/' . $tokenuser . '/objects/' . $keyobject;
+
+        $response = Http::get($url);
+
+        if ($response->status() != 200) {
+            return response()->json([
+                "message" => "Object not found"
+            ], 404);
+        }
+
+        $data = json_decode($response->body());
+
+        
+
+        $routes = $data->data->routes;
+
+        $result = array();
+
+        foreach ($routes as $route) {
+            $url = $route->route;
+            $response = Http::get($url);
+
+            if ($response->status() != 200) {
+                return response()->json([
+                    "message" => "Error pulling object from storage"
+                ], 500);
+            }
+
+            $result[] = $response->body();
+        }
+
+        return response($result[0], 200)->header('Content-Type', 'text/plain');
     }
 }

@@ -32,12 +32,12 @@ class Server extends Model
         });
     }
 
-    public static function allocate_single($file, $nodes, $userImpactFactor = 0.1)
+    public static function allocate_single($file, $nodes, $token_user, $userImpactFactor = 0.1)
     {
         #$total_nodes = count($nodes);
         //$replicationFactor = round($total_nodes * $userImpactFactor);
         Server::sortNodesByUF($nodes, $file->size);
-        $url = $nodes[0]["url"] . '/upload.php?file=c/' . $file->keyfile;
+        $url = $nodes[0]["url"] . '/objects/' . $file->keyfile . '/' . $token_user;
         $fileInServer = new FilesInServer;
         $fileInServer->server_id = $nodes[0]["id"];
         $fileInServer->keyfile = $file->keyfile;
@@ -45,7 +45,7 @@ class Server extends Model
         return $url;
     }
 
-    public static function allocate_ida($file, $nodes, $userImpactFactor = 0.1){
+    public static function allocate_ida($file, $nodes, $token_user, $userImpactFactor = 0.1){
         $required_nodes = $file->chunks;
         $chunk_size = $file->size / $file->chunks;
         $total_nodes = count($nodes);
@@ -69,25 +69,21 @@ class Server extends Model
                 $chunk->server_id = $nodes[$i-1]["id"];
                 $chunk->save();
                 $id = $chunk->id;
-                $result[]["route"] = $nodes[$i-1]["url"] . '/upload.php?file=c/' . $id;
+                $result[]["route"] = $nodes[$i-1]["url"] . '/objects/' . $file->keyfile . '/' . $token_user;
             }
         }
         return $result;
     }
 
-    public static function allocate($file, $nodes){
+    public static function allocate($file, $nodes, $token_user){
         $data = array();
         switch ($file->disperse) {
             case "IDA":
             case "SIDA":
-                $data = Server::allocate_ida($file, $nodes);
-                break;
-            case "RAID0":
-            case "RAID5":
-                #ToDO
+                $data = Server::allocate_ida($file, $nodes, $token_user);
                 break;
             case "SINGLE":
-                $url = Server::allocate_single($file, $nodes);
+                $url = Server::allocate_single($file, $nodes, $token_user);
                 $data[] = array("route" => $url);
                 
                 break;
@@ -102,7 +98,7 @@ class Server extends Model
                                 ->get()
                                 ->toArray(); 
         $result = array();
-        $result[] = array("route" => $nodes[0]["url"] . '/c/' . $file->keyfile, "server" => $nodes[0]["url"]);
+        $result[] = array("route" => $nodes[0]["url"] . "/objects/$file->keyfile/$tokenuser");
         return $result;
     }
 
@@ -121,7 +117,7 @@ class Server extends Model
             $response = Http::get($url);
             
             if($response->status() == 200){
-                $result[] = array("route" => $url . '/c/' . $chunks[$i]["id"], "server" => $url);
+                $result[] = array("route" => $url . "/objects/" . $chunks[$i]["id"] . "/$tokenuser", "server" => $url);
                 $i++;
             }        
         }
@@ -136,10 +132,6 @@ class Server extends Model
             case "SIDA":
                 $servers = Server::locate_ida($tokenuser, $file);
                 $data = array("routes" => $servers);
-                break;
-            case "RAID0":
-            case "RAID5":
-                #ToDO
                 break;
             case "SINGLE":
                 $temp = Server::locate_single($tokenuser, $file);

@@ -174,7 +174,7 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects/:/data/objects:rw
     environment:
-      APIGATEWAY_HOST: apigateway
+      AUTH_HOST: auth
     
 
 
