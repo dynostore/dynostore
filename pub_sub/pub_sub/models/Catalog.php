@@ -7,19 +7,21 @@ require_once "Curl.php";
 class Catalog extends REST
 {
 
-    public function manageCatalog(){
+    public function manageCatalog()
+    {
         $resMet = $this->getRequestMethod();
         if ($resMet == "PUT") {
             $this->createCatalog();
         } else {
             $this->methodNotAllowed();
-        }   
+        }
     }
 
-    public function createCatalog(){
+    public function createCatalog()
+    {
         if (
-            isset($_GET['catalog']) && isset($this->_request['dispersemode']) &&
-            isset($this->_request['encryption']) && isset($this->_request['fathers_token'])
+            isset ($_GET['catalog']) && isset ($this->_request['dispersemode']) &&
+            isset ($this->_request['encryption']) && isset ($this->_request['fathers_token'])
         ) {
             $tokenuser = $_GET['tokenuser'];
             $catalogname = $_GET['catalog'];
@@ -28,7 +30,7 @@ class Catalog extends REST
             $dispersemode = $this->_request['dispersemode'];
             $encryption = $this->_request['encryption'];
             $processed = $this->_request['processed'];
-            $group  = $this->_request['group'];
+            $group = $this->_request['group'];
             $db = new DbHandler();
 
             #check if catalog exists otherwise create it, this throw a 302 when catalog exists
@@ -100,6 +102,39 @@ class Catalog extends REST
     private function generateSHA256Token()
     {
         return hash('sha256', join('', array(time(), rand())), false);
+    }
+
+    public function insertFileInCatalog($token_catalog, $keyfile)
+    {
+        if ($this->getRequestMethod() != "POST") {
+            $msg = array("message" => "Method not available.");
+            $this->response($this->json($msg), 404);
+        }
+
+        if (isset ($keyfile) && isset ($token_catalog)) {
+            $db = new DbHandler();
+
+            if($db->catalogFileExist($token_catalog, $keyfile)){
+                $msg['message'] = "Object already in catalog.";
+                $this->response($this->json($msg), 302);
+            }else{
+                $status = 3;
+                $owner = true;
+                $data = $db->createCatalogFile($token_catalog, $keyfile, $status);
+                if ($data) {
+                    $msg['message'] = "Object inserted in catalog successfully.";
+                    $this->response($this->json($msg), 201);
+                } else {
+                    $msg['message'] = "Error adding object to catalog.";
+                    $this->response($this->json($msg), 400);
+                }
+            }
+
+            
+        } else {
+            $msg = array("message" => "Object key or catalog missing.");
+            $this->response($this->json($msg), 400);
+        }
     }
 
     public function methodNotAllowed()

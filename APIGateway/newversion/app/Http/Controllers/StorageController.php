@@ -24,7 +24,7 @@ class StorageController extends Controller
     {
 
         $url = "http://" . AUTH . '/auth/v1/user?tokenuser=' . $tokenuser;
-        
+
         $response = Http::get($url);
 
         if ($response->status() == 404) {
@@ -39,7 +39,7 @@ class StorageController extends Controller
         $tokencatalog = $result->data->tokencatalog;
 
 
-        $url = 'http://' . METADATA  . '/api/' . $tokenuser . '/' . $tokencatalog . '/objects/' . $keyobject;
+        $url = 'http://' . METADATA . '/api/' . $tokenuser . '/' . $tokencatalog . '/objects/' . $keyobject;
 
         $response = Http::put($url, [
             'name' => $request->name,
@@ -51,23 +51,32 @@ class StorageController extends Controller
             'disperse' => $request->disperse
         ]);
 
-        #print_r($response->body());
-        #print_r($response->status());
-
-        #ToDO Insert file in pubsub and upload object in storage 
-        
-        if ($response->status() == 201) {
+        #Insert file in pubsub and upload object in storage 
+        if ($response->status() != 201) {
             return response()->json([
-                'status' => 'success',
-                'message' => 'Object pushed successfully',
-                'data' => json_decode($response->body())
-            ], 201);
-        } else {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Object push failed',
-                'data' => json_decode($response->body())
+                "message" => "Error registering object metadata"
             ], 500);
         }
+
+
+        $url = "http://" . PUBSUB . '/catalog/' . $tokencatalog . '/object/' . $keyobject;
+        $response = Http::post($url);
+
+        #print_r($response->body());
+
+
+        if ($response->status() != 201 && $response->status() != 302) {
+            return response()->json([
+                "message" => "Error adding file to catalog"
+            ], 500);
+        }
+
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Object pushed successfully',
+            'data' => json_decode($response->body())
+        ], 201);
+
     }
 }

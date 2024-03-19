@@ -60,12 +60,25 @@ class FileController extends Controller
             ], 409);
         }
 
+
+
         try {
-            $file->save();
+            $file = File::updateOrCreate(
+                ["keyfile" => $keyfile],
+                [
+                    "name" => $file->name,
+                    "size" => $file->size,
+                    "hash" => $file->hash,
+                    "is_encrypted" => $file->is_encrypted,
+                    "chunks" => $file->chunks,
+                    "required_chunks" => $file->required_chunks,
+                    "disperse" => $file->disperse
+                ]
+            );
         } catch (QueryException $e) {
             return response()->json([
                 "message" => $e->getMessage()
-            ], 409);
+            ], 400);
         }
 
         $data = Server::allocate($file, $nodes);
@@ -84,25 +97,8 @@ class FileController extends Controller
             $keys[] = array("route" => $temp);
         }
 
-        /*try {
-            $url = "http://" . env('GATEWAY') . '/pub_sub/v1/catalogs/' . $tokencatalog . '/files/upload';
-            $response = Http::post($url, ["keyfile" => $file->keyfile]);
-
-
-            if ($response->status() != 201) {
-                return response()->json([
-                    "message" => "Error adding file to catalog"
-                ], 500);
-            }
-
-        } catch (QueryException $e) {
-            return response()->json([
-                "message" => $e->getMessage()
-            ], 409);
-        }*/
-
         return response()->json([
-            "message" => "File record created",
+            "message" => "Object record created or updated",
             "file" => $file,
             "nodes" => $data,
             "keys" => $keys,

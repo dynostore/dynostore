@@ -1598,6 +1598,29 @@ class DbHandler {
 			return false;
 		}
 	}
+
+	/**
+	 * Check if catalog contains file
+	 */
+	public function catalogFileExist($catalogId, $fileId) {
+		try {
+			$sql = 'SELECT * FROM catalogs_files WHERE tokencatalog = ? AND token_file = ?;';
+			$stmt = $this->db->prepare($sql);
+			$stmt->bindParam(1, $catalogId, PDO::PARAM_STR);
+			$stmt->bindParam(2, $fileId, PDO::PARAM_STR);
+			$stmt->execute();
+			if ($stmt->rowCount() == 1) {
+				$res = true;
+			} else {
+				$res = false;
+			}
+			$stmt = null;
+			return $res;
+		} catch (PDOException $e) {
+			$this->log->lwrite($e->getMessage());
+			return false;
+		}
+	}
 	
 	
 	/**
