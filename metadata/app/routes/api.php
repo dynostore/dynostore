@@ -4,6 +4,7 @@ use App\Http\Controllers\FileController;
 use App\Http\Controllers\ServerController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Middleware\EnsureTokenIsValid;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,10 +21,14 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::get('files/{tokenuser}/exists/{keyfile}', [FileController::class, 'exists']);
-Route::delete('files/{tokenuser}/delete/{keyfile}', [FileController::class, 'delete']);
-Route::put('{tokenuser}/{tokencatalog}/objects/{keyfile}', [FileController::class, 'push']);
-Route::get('{tokenuser}/objects/{keyfile}', [FileController::class, 'pull']);
+Route::group(['prefix' => 'storage', 'middleware' => [EnsureTokenIsValid::class]], function(){
+    Route::get('{tokenuser}/{keyfile}', [FileController::class, 'exists']);
+    Route::delete('{tokenuser}/{keyfile}', [FileController::class, 'delete']);
+    Route::put('{tokenuser}/{tokencatalog}/{keyfile}', [FileController::class, 'push']);
+    Route::get('{tokenuser}/{keyfile}', [FileController::class, 'pull']);
+});
+
+
 
 Route::post('servers/{tokenuser}', [ServerController::class, 'store']);
 Route::get('servers/{tokenuser}', [ServerController::class, 'index']);

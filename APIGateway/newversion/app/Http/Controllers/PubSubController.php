@@ -21,16 +21,6 @@ class PubSubController extends Controller
     //
     public function createCatalog(Request $request, $tokenuser, $catalogname)
     {
-        $url = "http://" . AUTH . '/auth/v1/user?tokenuser=' . $tokenuser;
-        
-        $response = Http::get($url);
-
-        if ($response->status() == 404) {
-            return response()->json([
-                "message" => "Unauthorized"
-            ], 401);
-        }
-        
         $url = 'http://' . PUBSUB  . '/catalog/' . $catalogname . '/?tokenuser=' . $tokenuser;
 
         $response = Http::put($url, [

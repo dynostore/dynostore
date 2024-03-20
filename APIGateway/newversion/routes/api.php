@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PubSubController;
 use App\Http\Controllers\StorageController;
 use App\Http\Controllers\StoreController;
+use App\Http\Middleware\EnsureTokenIsValid;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -25,15 +26,14 @@ Route::prefix('auth')->group(function () {
     Route::get('user/{tokenuser}', [AuthController::class, 'getUser']);
 });
 
-Route::prefix('pubsub')->group(function () {
+Route::group(['prefix' => 'pubsub', 'middleware' => [EnsureTokenIsValid::class]], function(){
     Route::put('{tokenuser}/catalog/{catalogname}', [PubSubController::class, 'createCatalog']);
     Route::get('{tokenuser}/catalog/{tokencatalog}', [PubSubController::class, 'getCatalog']);
     Route::delete('{tokenuser}/catalog/{tokencatalog}', [PubSubController::class, 'deleteCatalog']);
 });
 
-Route::prefix('storage')->group(function () {
+Route::group(['prefix' => 'storage', 'middleware' => [EnsureTokenIsValid::class]], function(){
     Route::put('{tokenuser}/{catalog}/{keyobject}', [StorageController::class, 'push']);
     Route::get('{tokenuser}/{keyobject}', [StorageController::class, 'pull']);
-    #Route::get('{tokenuser}/{tokencatalog}/object/{keyobject}', [StoreController::class, 'getFile']);
-    #Route::delete('object/{keyobject}', [StoreController::class, 'deleteFile']);
+    Route::delete('{tokenuser}/{catalog}/{keyobject}', [StorageController::class, 'delete']);
 });

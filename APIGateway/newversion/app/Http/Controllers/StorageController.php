@@ -20,26 +20,49 @@ if (!defined('METADATA')) {
 
 class StorageController extends Controller
 {
-    public function push(Request $request, $tokenuser, $catalog, $keyobject)
+
+    public function delete(Request $request, $tokenuser, $catalog, $keyobject)
     {
+        $url = 'http://' . METADATA . '/api/' . $tokenuser . '/' . $catalog . '/objects/' . $keyobject;
 
-        $url = "http://" . AUTH . '/auth/v1/user?tokenuser=' . $tokenuser;
+        $response = Http::delete($url);
 
-        $response = Http::get($url);
-
-        if ($response->status() == 404) {
+        if ($response->status() != 200) {
             return response()->json([
-                "message" => "Unauthorized"
-            ], 401);
+                "message" => "Error deleting object metadata"
+            ], 500);
         }
 
+        $data = json_decode($response->body());
+        $nodes = $data->nodes;
+
+        foreach ($nodes as $node) {
+            $url = $node->route;
+
+            $response = Http::delete($url);
+
+            if ($response->status() != 200) {
+                return response()->json([
+                    "message" => "Error deleting object from storage"
+                ], 500);
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Object deleted successfully'
+        ], 200);
+    }
+
+    public function push(Request $request, $tokenuser, $catalog, $keyobject)
+    {
         #create catalog. If exists, it will return 302
         $pubsub = new PubSubController();
         $result = $pubsub->createCatalog($request, $tokenuser, $catalog)->getData();
         $tokencatalog = $result->data->tokencatalog;
 
 
-        $url = 'http://' . METADATA . '/api/' . $tokenuser . '/' . $tokencatalog . '/objects/' . $keyobject;
+        $url = 'http://' . METADATA . '/api/storage/' . $tokenuser . '/' . $tokencatalog . '/' . $keyobject;
 
         $response = Http::put($url, [
             'name' => $request->name,
@@ -50,6 +73,12 @@ class StorageController extends Controller
             'required_chunks' => $request->required_chunks,
             'disperse' => $request->disperse
         ]);
+
+        if ($response->status() != 201) {
+            return response()->json([
+                "message" => "Error registering object metadata"
+            ], 500);
+        }
 
         $data = json_decode($response->body());
         $nodes = $data->nodes;
@@ -97,17 +126,7 @@ class StorageController extends Controller
 
     public function pull(Request $request, $tokenuser, $keyobject)
     {
-        $url = "http://" . AUTH . '/auth/v1/user?tokenuser=' . $tokenuser;
-
-        $response = Http::get($url);
-
-        if ($response->status() == 404) {
-            return response()->json([
-                "message" => "Unauthorized"
-            ], 401);
-        }
-
-        $url = 'http://' . METADATA . '/api/' . $tokenuser . '/objects/' . $keyobject;
+        $url = 'http://' . METADATA . '/api/storage/' . $tokenuser . '/' . $keyobject;
 
         $response = Http::get($url);
 
