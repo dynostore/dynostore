@@ -21,6 +21,7 @@ class CreateFilesTable extends Migration
             $table->boolean("is_encrypted");
             $table->string("hash", 400);
             $table->string("disperse", 400);
+            $table->string("owner", 400);
             $table->timestamps();
         });
     }

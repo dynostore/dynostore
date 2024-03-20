@@ -20,38 +20,38 @@ if (!defined('METADATA')) {
 
 class StorageController extends Controller
 {
-
-    public function delete(Request $request, $tokenuser, $catalog, $keyobject)
+    public function exists(Request $request, $tokenuser, $keyobject)
     {
-        $url = 'http://' . METADATA . '/api/' . $tokenuser . '/' . $catalog . '/objects/' . $keyobject;
+        $url = 'http://' . METADATA . '/api/storage/' . $tokenuser . '/' . $keyobject . '/exists';
+
+        $response = Http::get($url);
+
+        #print($response->body());
+
+        if ($response->status() != 200) {
+            return response()->json([
+                "message" => json_decode($response->body())->message
+            ], 404);
+        }else{
+            return response()->json($response->json(), 200);
+        }
+    }
+
+    public function delete(Request $request, $tokenuser, $keyobject)
+    {
+        $url = 'http://' . METADATA . '/api/storage/' . $tokenuser . '/' . $keyobject;
 
         $response = Http::delete($url);
 
         if ($response->status() != 200) {
             return response()->json([
-                "message" => "Error deleting object metadata"
+                "message" => json_decode($response->body())->message
             ], 500);
+        }else{
+            return response()->json([
+                "message" => "Object deleted successfully"
+            ], 200);
         }
-
-        $data = json_decode($response->body());
-        $nodes = $data->nodes;
-
-        foreach ($nodes as $node) {
-            $url = $node->route;
-
-            $response = Http::delete($url);
-
-            if ($response->status() != 200) {
-                return response()->json([
-                    "message" => "Error deleting object from storage"
-                ], 500);
-            }
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Object deleted successfully'
-        ], 200);
     }
 
     public function push(Request $request, $tokenuser, $catalog, $keyobject)
@@ -76,7 +76,7 @@ class StorageController extends Controller
 
         if ($response->status() != 201) {
             return response()->json([
-                "message" => "Error registering object metadata"
+                "message" => json_decode($response->body())->message
             ], 500);
         }
 
@@ -129,16 +129,20 @@ class StorageController extends Controller
         $url = 'http://' . METADATA . '/api/storage/' . $tokenuser . '/' . $keyobject;
 
         $response = Http::get($url);
-
-        if ($response->status() != 200) {
+        print_r($response->body());
+        if($response->status() >= 500){
             return response()->json([
-                "message" => "Object not found"
+                "message" => json_decode($response->body())->message
+            ], 500);
+        }
+
+        if ($response->status() == 404) {
+            return response()->json([
+                "message" => json_decode($response->body())->message
             ], 404);
         }
 
         $data = json_decode($response->body());
-
-        
 
         $routes = $data->data->routes;
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreFileRequest;
 use App\Http\Requests\UpdateFileRequest;
+use Illuminate\Support\Facades\DB;
 use App\Models\Abekey;
 use App\Models\Chunk;
 use App\Models\File;
@@ -36,7 +37,7 @@ class FileController extends Controller
                 "message" => "Unauthorized"
             ], 401);
         }
-        
+
         $keys = array();
         $file = new File;
         $file->name = $request->input('name');
@@ -47,6 +48,7 @@ class FileController extends Controller
         $file->chunks = $request->input('chunks');
         $file->required_chunks = $request->has('required_chunks') ? $request->input('required_chunks') : 1;
         $file->disperse = $file->chunks == 1 ? "SINGLE" : "IDA";
+        $file->owner = $tokenuser;
 
         try {
             $nodes = Server::where('up', True)->get()->toArray();
@@ -72,7 +74,6 @@ class FileController extends Controller
         }
 
 
-
         try {
             $file = File::updateOrCreate(
                 ["keyfile" => $keyfile],
@@ -83,6 +84,7 @@ class FileController extends Controller
                     "is_encrypted" => $file->is_encrypted,
                     "chunks" => $file->chunks,
                     "required_chunks" => $file->required_chunks,
+                    "owner" => $file->owner,
                     "disperse" => $file->disperse
                 ]
             );
@@ -121,22 +123,20 @@ class FileController extends Controller
     public function pull(Request $request, $tokenuser, $keyfile)
     {
 
-        $url = "http://" . AUTH . '/auth/v1/user?tokenuser=' . $tokenuser;
-
-        $response = Http::get($url);
-
-        if ($response->status() == 404) {
-            return response()->json([
-                "message" => "Unauthorized"
-            ], 401);
-        }
-
-
         try {
-            $file = File::where('keyfile', $keyfile)->first();
+            $file = File::where('keyfile', $keyfile)
+                ->where('removed', 0)
+                ->where('owner', "=", $tokenuser)
+                ->first();
         } catch (QueryException $e) {
             return response()->json([
-                "message" => "File not found"
+                "message" => "Object not found or not authorized"
+            ], 404);
+        }
+
+        if (!$file) {
+            return response()->json([
+                "message" => "Object not found or not authorized"
             ], 404);
         }
 
@@ -157,57 +157,51 @@ class FileController extends Controller
 
 
     public function exists(Request $request, $tokenuser, $keyfile)
-    {
-
-        $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
-        $response = Http::get($url);
-
-        if ($response->status() == 404) {
+    {   
+        try {
+            $file = File::where('keyfile', $keyfile)
+                ->where('removed', 0)
+                ->where('owner', "=", $tokenuser)
+                ->first();
+        } catch (QueryException $e) {
             return response()->json([
-                "message" => "Unauthorized"
-            ], 401);
+                "message" => "Object not found or not authorized"
+            ], 404);
         }
 
 
-        $file = File::where('keyfile', $keyfile)->first();
+        $file = File::where('keyfile', $keyfile)
+            ->where('removed', 0)
+            ->where('owner', "=", $tokenuser)
+            ->first();
 
         if ($file) {
             return response()->json([
                 "message" => "File exists",
-                "file" => $file,
                 "exists" => true,
             ], 200);
         } else {
             return response()->json([
-                "message" => "File not found"
-            ], 404);
+                "message" => "File not found",
+                "exists" => false
+            ], 200);
         }
     }
 
 
     public function delete(Request $request, $tokenuser, $keyfile)
     {
-
-        $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
-        $response = Http::get($url);
-
-        if ($response->status() == 404) {
-            return response()->json([
-                "message" => "Unauthorized"
-            ], 401);
-        }
-
-
-        $file = File::where('keyfile', $keyfile)->first();
+        $file = File::where('keyfile', $keyfile)
+            ->where('removed', 1)
+            ->where('owner', "=", $tokenuser)
+            ->first();
 
         if ($file) {
             $servers = Server::locate($tokenuser, $file)["routes"];
             $error = false;
 
             foreach ($servers as $server) {
-                $url = $server["server"] . "/delete.php?file=" . $keyfile . "&tokenuser=" . $tokenuser;
-                $response = Http::delete($url);
-
+                $response = Http::delete($server["route"]);
                 $error = $response->status() != 200;
             }
 
