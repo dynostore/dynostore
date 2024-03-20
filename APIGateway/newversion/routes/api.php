@@ -36,4 +36,5 @@ Route::group(['prefix' => 'storage', 'middleware' => [EnsureTokenIsValid::class]
     Route::put('{tokenuser}/{catalog}/{keyobject}', [StorageController::class, 'push']);
     Route::get('{tokenuser}/{keyobject}', [StorageController::class, 'pull']);
     Route::delete('{tokenuser}/{keyobject}', [StorageController::class, 'delete']);
+    Route::get('{tokenuser}/{keyobject}/exists', [StorageController::class, 'exists']);
 });

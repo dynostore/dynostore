@@ -22,7 +22,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::group(['prefix' => 'storage', 'middleware' => [EnsureTokenIsValid::class]], function(){
-    Route::get('{tokenuser}/{keyfile}', [FileController::class, 'exists']);
+    Route::get('{tokenuser}/{keyfile}/exists', [FileController::class, 'exists']);
     Route::delete('{tokenuser}/{keyfile}', [FileController::class, 'delete']);
     Route::put('{tokenuser}/{tokencatalog}/{keyfile}', [FileController::class, 'push']);
     Route::get('{tokenuser}/{keyfile}', [FileController::class, 'pull']);

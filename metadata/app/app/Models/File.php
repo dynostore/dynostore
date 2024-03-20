@@ -16,7 +16,8 @@ class File extends Model
         "is_encrypted",
         "hash",
         "disperse",
-        "required_chunks"
+        "required_chunks",
+        "owner"
     ];
 
     protected $primaryKey = 'keyfile'; 
