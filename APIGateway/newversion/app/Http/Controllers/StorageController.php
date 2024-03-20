@@ -21,37 +21,21 @@ if (!defined('METADATA')) {
 class StorageController extends Controller
 {
 
-    public function delete(Request $request, $tokenuser, $catalog, $keyobject)
+    public function delete(Request $request, $tokenuser, $keyobject)
     {
-        $url = 'http://' . METADATA . '/api/' . $tokenuser . '/' . $catalog . '/objects/' . $keyobject;
+        $url = 'http://' . METADATA . '/api/storage/' . $tokenuser . '/' . $keyobject;
 
         $response = Http::delete($url);
 
         if ($response->status() != 200) {
             return response()->json([
-                "message" => "Error deleting object metadata"
+                "message" => "Error deleting object"
             ], 500);
+        }else{
+            return response()->json([
+                "message" => "Object deleted successfully"
+            ], 200);
         }
-
-        $data = json_decode($response->body());
-        $nodes = $data->nodes;
-
-        foreach ($nodes as $node) {
-            $url = $node->route;
-
-            $response = Http::delete($url);
-
-            if ($response->status() != 200) {
-                return response()->json([
-                    "message" => "Error deleting object from storage"
-                ], 500);
-            }
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Object deleted successfully'
-        ], 200);
     }
 
     public function push(Request $request, $tokenuser, $catalog, $keyobject)
@@ -137,8 +121,6 @@ class StorageController extends Controller
         }
 
         $data = json_decode($response->body());
-
-        
 
         $routes = $data->data->routes;
 

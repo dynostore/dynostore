@@ -133,7 +133,7 @@ class FileController extends Controller
 
 
         try {
-            $file = File::where('keyfile', $keyfile)->first();
+            $file = File::where('keyfile', $keyfile)->where('removed', 0)->first();
         } catch (QueryException $e) {
             return response()->json([
                 "message" => "File not found"
@@ -187,17 +187,6 @@ class FileController extends Controller
 
     public function delete(Request $request, $tokenuser, $keyfile)
     {
-
-        $url = "http://" . env('AUTH') . '/auth/v1/user?tokenuser=' . $tokenuser;
-        $response = Http::get($url);
-
-        if ($response->status() == 404) {
-            return response()->json([
-                "message" => "Unauthorized"
-            ], 401);
-        }
-
-
         $file = File::where('keyfile', $keyfile)->first();
 
         if ($file) {
@@ -205,9 +194,7 @@ class FileController extends Controller
             $error = false;
 
             foreach ($servers as $server) {
-                $url = $server["server"] . "/delete.php?file=" . $keyfile . "&tokenuser=" . $tokenuser;
-                $response = Http::delete($url);
-
+                $response = Http::delete($server["route"]);
                 $error = $response->status() != 200;
             }
 
