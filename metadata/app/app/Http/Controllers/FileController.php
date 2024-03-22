@@ -192,7 +192,7 @@ class FileController extends Controller
     public function delete(Request $request, $tokenuser, $keyfile)
     {
         $file = File::where('keyfile', $keyfile)
-            ->where('removed', 1)
+            ->where('removed', 0)
             ->where('owner', "=", $tokenuser)
             ->first();
 

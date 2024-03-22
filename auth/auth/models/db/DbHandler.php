@@ -335,6 +335,7 @@ class DbHandler {
 
 	public function getUserByEmailWithOrg($email) {
 		try {
+			
 			$sql = 'SELECT keyuser, tokenuser, username, email, apikey, u.tokenorg, access_token, isadmin, isactive, acronym, fullname FROM users AS u JOIN hierarchy AS h ON u.tokenorg=h.tokenhierarchy JOIN token_mapping AS m ON h.keyhierarchy=m.keyhierarchy WHERE email=:ur OR username=:ur';
 			//$sql = 'SELECT * FROM users WHERE email = ?';
 			$stmt = $this->db->prepare($sql);
@@ -827,7 +828,7 @@ class DbHandler {
 		try {
 			//echo $token;
 			//$sql = 'SELECT * FROM users WHERE tokenuser = ?';
-			$sql = 'SELECT username, email FROM users WHERE tokenuser = ?';
+			$sql = 'SELECT tokenuser,tokenorg FROM users WHERE tokenuser = ?';
 			$stmt = $this->db->prepare($sql);
 			$stmt->bindParam(1, $token, PDO::PARAM_STR);
 			$stmt->execute();

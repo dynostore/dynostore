@@ -1,10 +1,11 @@
-#Data container API
+# Data container API
 
 import os
 from flask import Flask, jsonify, request
 import requests
 from werkzeug.utils import secure_filename
 
+from dynostore.decorators.token import validateToken
 from caching import LRUCacheStorage
 
 app = Flask(__name__)
@@ -16,34 +17,25 @@ URL_AUTH = "http://" + AUTH_HOST + '/auth/v1/user?tokenuser='
 storage = LRUCacheStorage(100000)
 
 
-@app.route('/objects/<objectkey>/<usertoken>', methods=["PUT"])
-def upload_object(objectkey, usertoken):
+@app.route('/objects/<objectkey>/<tokenuser>', methods=["PUT"])
+@validateToken(auth_host=AUTH_HOST)
+def upload_object(objectkey, tokenuser):
     if request.method == 'PUT':
-        
-        url = URL_AUTH + usertoken
-        response = requests.get(url)
-        if response.status_code != 200:
-            return jsonify({"error": "Invalid user token"}), 401
-        
-        bytes_ = request.data 
+        bytes_ = request.data
         try:
             storage.put(objectkey, bytes_)
-            return jsonify({"message": "Data successfully uploaded"}), 201     
+            return jsonify({"message": "Data successfully uploaded"}), 201
         except Exception as e:
-            return jsonify({"error": "Error uploading data. Exception " + str(e)}), 500      
-        
+            return jsonify({"error": "Error uploading data. Exception " + str(e)}), 500
+
     else:
         return jsonify({"error": "Invalid request method"}), 405
-    
-@app.route('/objects/<objectkey>/<usertoken>', methods=["GET"])
-def download_object(objectkey, usertoken):
+
+
+@app.route('/objects/<objectkey>/<tokenuser>', methods=["GET"])
+@validateToken(auth_host=AUTH_HOST)
+def download_object(objectkey, tokenuser):
     if request.method == 'GET':
-        
-        url = URL_AUTH + usertoken
-        response = requests.get(url)
-        if response.status_code != 200:
-            return jsonify({"error": "Invalid user token"}), 401
-        
         try:
             return storage.get(objectkey), 200
         except Exception as e:
@@ -51,15 +43,11 @@ def download_object(objectkey, usertoken):
     else:
         return jsonify({"error": "Invalid request method"}), 405
 
-@app.route('/objects/<objectkey>/<usertoken>', methods=["DELETE"])
-def delete_object(objectkey, usertoken):
+
+@app.route('/objects/<objectkey>/<tokenuser>', methods=["DELETE"])
+@validateToken(auth_host=AUTH_HOST)
+def delete_object(objectkey, tokenuser):
     if request.method == 'DELETE':
-        
-        url = URL_AUTH + usertoken
-        response = requests.get(url)
-        if response.status_code != 200:
-            return jsonify({"error": "Invalid user token"}), 401
-        
         try:
             storage.evict(objectkey)
             return jsonify({"message": "Data successfully deleted"}), 200
@@ -68,15 +56,11 @@ def delete_object(objectkey, usertoken):
     else:
         return jsonify({"error": "Invalid request method"}), 405
 
-@app.route('/objects/<objectkey>/<usertoken>', methods=["HEAD"])
-def head_object(objectkey, usertoken):
+
+@app.route('/objects/<objectkey>/<tokenuser>', methods=["HEAD"])
+@validateToken(auth_host=AUTH_HOST)
+def head_object(objectkey, tokenuser):
     if request.method == 'HEAD':
-        
-        url = URL_AUTH + usertoken
-        response = requests.get(url)
-        if response.status_code != 200:
-            return jsonify({"error": "Invalid user token"}), 401
-        
         if storage.exists(objectkey):
             return jsonify({"message": "Data exists"}), 200
         else:
@@ -85,6 +69,5 @@ def head_object(objectkey, usertoken):
         return jsonify({"error": "Invalid request method"}), 405
 
 
-
 if __name__ == '__main__':
-   app.run(debug = True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0')
