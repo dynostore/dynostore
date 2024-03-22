@@ -1264,9 +1264,10 @@ class DbHandler {
 	*/
 	public function getCatalog($id) {
 		try {
-			$sql = 'SELECT * FROM catalogs WHERE tokencatalog = ?;';
+			$sql = 'SELECT * FROM catalogs WHERE tokencatalog = ? OR namecatalog = ?;';
 			$stmt = $this->db->prepare($sql);
 			$stmt->bindParam(1, $id ,PDO::PARAM_STR);
+			$stmt->bindParam(2, $id ,PDO::PARAM_STR);
 			$stmt->execute();
 			if ($stmt->rowCount() == 1) {
 				$res = $stmt->fetch(PDO::FETCH_ASSOC);

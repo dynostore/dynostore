@@ -12,9 +12,52 @@ class Catalog extends REST
         $resMet = $this->getRequestMethod();
         if ($resMet == "PUT") {
             $this->createCatalog();
-        } else {
+        } else if ($resMet == "GET") {
+            $this->getCatalog();
+        } else if ($resMet == "DELETE") {
+            $this->deleteCatalog();
+        } 
+        else {
             $this->methodNotAllowed();
         }
+    }
+
+    public function deleteCatalog(){
+        if(isset($_GET['catalog'])){
+            $catalog = $_GET['catalog'];
+            $db = new DbHandler();
+            $data = $db->deleteCatalog($catalog);
+            if($data){
+                $msg['message'] = "Catalog deleted";
+                $this->response($this->json($msg), 200);
+            }else{
+                $msg['message'] = "Catalog not found";
+                $this->response($this->json($msg), 404);
+            }
+        }else{
+            $msg['message'] = "Catalog not found";
+            $this->response($this->json($msg), 404);
+        }
+    }
+
+    public function getCatalog(){
+        if(isset($_GET['catalog'])){
+            $catalog = $_GET['catalog'];
+            $db = new DbHandler();
+            $data = $db->getCatalog($catalog);
+            if($data){
+                $msg['message'] = "Catalog found";
+                $msg['data'] = $data;
+                $this->response($this->json($msg), 200);
+            }else{
+                $msg['message'] = "Catalog not found";
+                $this->response($this->json($msg), 404);
+            }
+        }else{
+            $msg['message'] = "Catalog not found";
+            $this->response($this->json($msg), 404);
+        }
+    
     }
 
     public function createCatalog()

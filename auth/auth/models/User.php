@@ -1087,7 +1087,15 @@ class User extends REST
                     if (isset($this->_request['acronym']) && isset($this->_request['fullname']) && isset($this->_request['fathers_token'])) {
                         //$this->_request['fullname'] = str_replace(" ", "_", $this->_request['fullname']);
                         $db = new DbHandler();
-                        $this->hierarchyExist($this->_request['acronym'], $this->_request['fullname']);
+                        $res = $this->hierarchyExist($this->_request['acronym'], $this->_request['fullname']);
+
+                        if($res){
+                            $msg['message'] = "Organization exists.";
+                            $msg["data"] = $res;
+                            $msg['code'] = 0;
+                            $this->response($this->json($msg), 403);
+                        }
+
                         $keyhierarchy = $this->generateToken();
                         $tokenH = $this->generateSHA256Token();
                         if ($this->_request['fathers_token'] == '/') {
@@ -1183,6 +1191,11 @@ class User extends REST
                         if (!$res) {
                             $msg['message'] = "Acronym and name available.";
                             $msg['code'] = 1;
+                            $this->response($this->json($msg), 404);
+                        }else{
+                            $msg['message'] = "Organization exists.";
+                            $msg["data"] = $res;
+                            $msg['code'] = 0;
                             $this->response($this->json($msg), 200);
                         }
                     }
@@ -1324,10 +1337,7 @@ class User extends REST
         $db = new DbHandler();
         $data = $db->hierarchyExist($acron, $name);
         if ($data) {
-            $msg['message'] = "Cant use this acronym or name.";
-            $msg["data"] = $data;
-            $msg['code'] = 0;
-            $this->response($this->json($msg), 400);
+            return $data;
         }
         return false;
     }

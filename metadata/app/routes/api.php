@@ -28,8 +28,6 @@ Route::group(['prefix' => 'storage', 'middleware' => [EnsureTokenIsValid::class]
     Route::get('{tokenuser}/{keyfile}', [FileController::class, 'pull']);
 });
 
-
-
 Route::post('servers/{tokenuser}', [ServerController::class, 'store']);
 Route::get('servers/{tokenuser}', [ServerController::class, 'index']);
 Route::get('servers/{tokenuser}/statistics', [ServerController::class, 'statistics']);

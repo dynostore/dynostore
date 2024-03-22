@@ -16,6 +16,21 @@ services:
       - APIGATEWAY_HOST=apigateway
       - AUTH_HOST=auth
 
+  apigateway:
+    image: dynostore/apigateway:python
+    build: 
+      context: ./APIGatewayPython
+      dockerfile: Dockerfile
+    ports:
+        - "8095:5000"
+    volumes:
+      - ./APIGatewayPython/app/:/app
+    environment:
+      AUTH_HOST: auth
+      PUB_SUB_HOST: pub_sub
+      METADATA_HOST: metadata_server
+  
+
   metadata_server:
     image: nginx:1.17-alpine
     restart: unless-stopped
@@ -23,7 +38,7 @@ services:
       - 8005:80
     volumes:
       - ./metadata/app:/var/www
-      - ${PWD}/metadata/default.conf:/etc/nginx/conf.d/default.conf
+      - ./metadata/default.conf:/etc/nginx/conf.d/default.conf
 
   db_metadata:
     image: mysql:5.7
@@ -42,33 +57,6 @@ services:
       # Where our data will be persisted
     volumes:
       - my-db:/var/lib/mysql
-
-  webgateway:
-    image: nginx:latest
-    restart: unless-stopped
-    ports:
-      - '8080:80'
-    volumes:
-      - ${PWD}/APIGateway/newversion:/var/www
-      - ${PWD}/APIGateway/default.conf:/etc/nginx/conf.d/default.conf
-
-  apigateway: #API de Painal
-    image: dynostore/gateway:muyal
-    build: 
-      context: ./APIGateway
-      dockerfile: Dockerfile
-      args:
-        user: metadata
-        uid: 1000
-    environment:
-      AUTH_HOST: auth
-      PUB_SUB_HOST: pub_sub
-      METADATA_HOST: metadata_server
-      APIGATEWAY_HOST: webgateway
-    volumes:
-      - ./APIGateway/newversion/:/var/www/
-      - ./APIGateway/dynostore/:/dynostore/
-    restart: always
 
   auth: #Authentication service
     image: dynostore/auth:muyal
@@ -112,7 +100,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "20004:80"
+      - "8090:80"
     depends_on:
       - auth
       - pub_sub
@@ -172,10 +160,61 @@ services:
         - "20001:5000"
     volumes:
       - ./datacontainer/code/:/app
-      - ./datacontainer/objects/:/data/objects:rw
+      - ./datacontainer/objects1/:/data/objects:rw
     environment:
       AUTH_HOST: auth
     
+  datacontainer2:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20002:5000"
+    volumes:
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects2/:/data/objects:rw
+    environment:
+      AUTH_HOST: auth
+
+  datacontainer3:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20003:5000"
+    volumes:
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects3/:/data/objects:rw
+    environment:
+      AUTH_HOST: auth
+
+  datacontainer4:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20004:5000"
+    volumes:
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects4/:/data/objects:rw
+    environment:
+      AUTH_HOST: auth
+
+  datacontainer5:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20005:5000"
+    volumes:
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects5/:/data/objects:rw
+    environment:
+      AUTH_HOST: auth
 
 
          

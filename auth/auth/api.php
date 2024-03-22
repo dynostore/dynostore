@@ -44,8 +44,6 @@ if (isset($_GET['type'])) {
 		case 12:
 			$api->getUserByEmail($api->_request['email']);
 			break;
-		
-			break;
 		case 14:
 			$api->getUserByApiKey($api->_request['api_key']);
 			break;
