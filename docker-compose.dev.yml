@@ -19,12 +19,12 @@ services:
   apigateway:
     image: dynostore/apigateway:python
     build: 
-      context: ./APIGatewayPython
+      context: ./APIGateway
       dockerfile: Dockerfile
     ports:
         - "8095:5000"
     volumes:
-      - ./APIGatewayPython/app/:/app
+      - ./APIGateway/app/:/app
     environment:
       AUTH_HOST: auth
       PUB_SUB_HOST: pub_sub

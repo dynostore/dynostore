@@ -1,5 +1,5 @@
-from proxystore.cdn.reliability.utils import build_building_blocks, inner_product, nextPrime, vandermonde_inverse, matrix_product
-from proxystore.cdn.reliability.fragment_handler import fragment_writer, fragment_reader, fragment_reader_bytes
+from dynostore.datamanagement.reliability.utils import build_building_blocks, inner_product, nextPrime, vandermonde_inverse, matrix_product
+from dynostore.datamanagement.reliability.fragment_handler import fragment_writer, fragment_reader, fragment_reader_bytes
 import pickle
 import numpy as np
 
