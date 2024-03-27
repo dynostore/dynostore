@@ -1,5 +1,6 @@
 import requests
 import json
+import pickle
 
 from dynostore.controllers.catalogs import CatalogController
 from dynostore.datamanagement.reliability import ida
@@ -71,6 +72,7 @@ class DataController():
             n = request_json['chunks']
             k = request_json['required_chunks']
             data = ida.split_bytes(request_bytes, n, k)
+            data = [pickle.dumps(fragment) for fragment in data]
         else:
             data.append(request_bytes)
             
