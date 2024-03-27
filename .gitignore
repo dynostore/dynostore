@@ -1,1 +1,4 @@
 datacontainer/objects/*
+APIGateway/app/dynostore/datamanagement/reliability/__pycache__/utils.cpython-311.pyc
+APIGateway/app/dynostore/datamanagement/reliability/__pycache__/ida.cpython-311.pyc
+APIGateway/app/dynostore/datamanagement/reliability/__pycache__/fragment_handler.cpython-311.pyc
