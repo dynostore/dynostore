@@ -48,6 +48,7 @@ class FileController extends Controller
         $file->chunks = $request->input('chunks');
         $file->required_chunks = $request->has('required_chunks') ? $request->input('required_chunks') : 1;
         $file->disperse = $file->chunks == 1 ? "SINGLE" : "IDA";
+        
         $file->owner = $tokenuser;
 
         try {

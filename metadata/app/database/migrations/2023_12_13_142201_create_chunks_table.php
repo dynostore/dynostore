@@ -16,6 +16,7 @@ class CreateChunksTable extends Migration
         Schema::create('chunks', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('keyfile')->index()->nullable(false);
+            $table->string('keychunk')->nullable(false);
             $table->string('name');
             $table->unsignedDouble('size');
             $table->timestamps();
