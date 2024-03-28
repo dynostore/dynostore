@@ -6,4 +6,4 @@ datacontainer/objects4/
 datacontainer/objects5/
 APIGateway/app/dynostore/datamanagement/reliability/__pycache__/
 APIGateway/app/dynostore/controllers/__pycache__/
-APIGateway/app/dynostore/controllers/__pycache__/data.cpython-311.pyc
+*.pyc
