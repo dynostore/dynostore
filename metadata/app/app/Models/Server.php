@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class Server extends Model
 {
@@ -66,10 +67,11 @@ class Server extends Model
                 $chunk->name = $chunk_name;
                 $chunk->size = $chunk_size;
                 $chunk->keyfile = $file->keyfile;
+                $chunk->keychunk = Str::uuid();
                 $chunk->server_id = $nodes[$i-1]["id"];
                 $chunk->save();
                 $id = $chunk->id;
-                $result[]["route"] = $nodes[$i-1]["url"] . '/objects/' . $file->keyfile . '/' . $token_user;
+                $result[]["route"] = $nodes[$i-1]["url"] . '/objects/' . $file->keyfile . $chunk->keychunk . '/' . $token_user;
             }
         }
         return $result;
@@ -114,10 +116,9 @@ class Server extends Model
 
         while($i < $required_chunks){
             $url = $chunks[$i]["url"];
-            $response = Http::get($url);
-            
+            $response = Http::get($url . "/health");
             if($response->status() == 200){
-                $result[] = array("route" => $url . "/objects/" . $chunks[$i]["id"] . "/$tokenuser", "server" => $url);
+                $result[] = array("route" => $url . "/objects/" . $chunks[$i]["keyfile"] . $chunks[$i]["keychunk"] . "/$tokenuser", "server" => $url);
                 $i++;
             }        
         }

@@ -16,6 +16,10 @@ URL_AUTH = "http://" + AUTH_HOST + '/auth/v1/user?tokenuser='
 
 storage = LRUCacheStorage(100000)
 
+#check if node is alive
+@app.route('/health', methods=["GET"])
+def health():
+    return jsonify({"message": "Data container is alive"}), 200
 
 @app.route('/objects/<objectkey>/<tokenuser>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
