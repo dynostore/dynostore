@@ -97,7 +97,6 @@ services:
       - ./auth/schema-sql/auth.sql:/docker-entrypoint-initdb.d/auth.sql
       - ./auth/configure:/configure
     restart: always
-
   frontend: #Interfez gráfica
     image: dynostore/frontend:muyal
     build: 
