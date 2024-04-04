@@ -348,6 +348,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#dynostore-connector-for-proxystore" class="md-nav__link">
+    <span class="md-ellipsis">
+      DynoStore connector for ProxyStore
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -420,6 +429,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#dynostore-connector-for-proxystore" class="md-nav__link">
+    <span class="md-ellipsis">
+      DynoStore connector for ProxyStore
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -444,28 +462,29 @@
 <p>DynoStore is a content delivery network that facilitates the connection of multiple storage infraestructures to create a data fabric. At the core of DynoStore entities called data containers orchestrate the storage and movement of data through multiple sites. These containers include generic interfaces to interconnect sites implementing different storage systems (e.g., Amazon S3, Ceph, or Lustre).</p>
 <p>DynoStore components are divided on client and server components. Server components are microservices deployed to manage the metadata of contents and  user authentication. Whereas, client components include functions to push and pull data.</p>
 <h2 id="services-installation-using-docker-recommended">Services installation using Docker (recommended)<a class="headerlink" href="#services-installation-using-docker-recommended" title="Permanent link">&para;</a></h2>
-<p>Los siguientes servicios se encuentran declarados en el archivo <code>docker-compose.yml</code>. </p>
+<p>DynoStore architechtures follows a microservice design, which includes the following components declared in the <code>docker-compose.yml</code>: </p>
 <ul>
-<li><code>apigateway</code>: API Gateway </li>
-<li><code>auth</code>: User authentication.</li>
-<li><code>frontend</code>: GUI to navigate through uploaded files.</li>
-<li><code>pub_sub</code>: Publication/subscription service.</li>
-<li><code>metadata</code>: Metadata service.</li>
-<li><code>storage1, storage2, storage3, storage4, storage5</code>: storage containers.</li>
+<li><code>apigateway</code>: serves as interface for clients and applications pushing and pulling data using DynoStore. </li>
+<li><code>auth</code>: for user registration and authentication.</li>
+<li><code>frontend</code>: GUI to navigate through uploaded data.</li>
+<li><code>pub_sub</code>: to manage the sharing of data based on a publication/subscription service.</li>
+<li><code>metadata</code>: to manage the metadata.</li>
+<li><code>datacontainer1, datacontainer2, datacontainer3, datacontainer4, datacontainer5</code>: data containers to store data.</li>
 </ul>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
 </span></code></pre></div>
+<p>For a further description of how to deploy these backend services, please refer to <a href="/installation">Backend installation</a></p>
 <h2 id="client-instalation-and-usage">Client instalation and usage<a class="headerlink" href="#client-instalation-and-usage" title="Permanent link">&para;</a></h2>
 <p>ProxyStore can be accessed through a Python client. This client implement evict, exists, get, and put functions. </p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span> <span class="nn">dynostore.client</span> <span class="kn">import</span> <span class="n">Client</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">import</span> <span class="nn">uuid</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">token_user</span> <span class="o">=</span> <span class="s2">&quot;user-0&quot;</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">token_user</span> <span class="o">=</span> <span class="s2">&quot;&lt;&lt;token-user-0&gt;&gt;&quot;</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">catalog</span> <span class="o">=</span> <span class="s2">&quot;catalog-0&quot;</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">data</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;Hello, World!&quot;</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;metadata_server&quot;</span><span class="p">)</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;&lt;&lt;API_GATEWAY_IP&gt;&gt;&quot;</span><span class="p">)</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">client</span><span class="o">.</span><span class="n">put</span><span class="p">(</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">,</span>
@@ -478,6 +497,25 @@
 </span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">token_user</span> <span class="o">=</span> <span class="n">token_user</span>
 </span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">)</span>
 </span></code></pre></div>
+<h2 id="dynostore-connector-for-proxystore">DynoStore connector for ProxyStore<a class="headerlink" href="#dynostore-connector-for-proxystore" title="Permanent link">&para;</a></h2>
+<p>We implemented a DynoStore connector that can be used with <a href="https://docs.proxystore.dev/">ProxyStore</a> for the transparent management of Python objects as proxies. Getting starte with DynoStore connector requires a few lines of Python code:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span> <span class="nn">proxystore.proxy</span> <span class="kn">import</span> <span class="n">Proxy</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span> <span class="nn">proxystore.store</span> <span class="kn">import</span> <span class="n">Store</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span> <span class="nn">proxystore.connectors.cdn</span> <span class="kn">import</span> <span class="n">DynoConnector</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Create a DynoStore connector </span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">connector</span> <span class="o">=</span> <span class="n">DynoConnector</span><span class="p">(</span><span class="n">apigateway</span><span class="o">=</span><span class="s2">&quot;&lt;&lt;API_GATEWAY_IP&gt;&gt;&quot;</span><span class="p">,</span> <span class="n">token_user</span><span class="o">=</span><span class="s2">&quot;&lt;&lt;token-user-0&gt;&gt;&quot;</span><span class="p">,</span> <span class="n">catalog</span><span class="o">=</span><span class="s2">&quot;proxystore&quot;</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">store</span> <span class="o">=</span> <span class="n">Store</span><span class="p">(</span><span class="s1">&#39;my-store&#39;</span><span class="p">,</span> <span class="n">connector</span><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">data</span> <span class="o">=</span> <span class="mi">3</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Store the object and get a proxy</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">proxy</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">proxy</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># Work on the proxy which behavies like the original object</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">data</span> <span class="o">=</span> <span class="n">proxy</span> <span class="o">**</span> <span class="mi">2</span>
+</span></code></pre></div>
+<p>Check out <a href="https://docs.proxystore.dev/">ProxyStore documentation</a> to learn more!</p>
 
 
 
