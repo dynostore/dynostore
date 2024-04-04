@@ -7,3 +7,5 @@ datacontainer/objects5/
 APIGateway/app/dynostore/datamanagement/reliability/__pycache__/
 APIGateway/app/dynostore/controllers/__pycache__/
 *.pyc
+site/
+.dynostore.txt

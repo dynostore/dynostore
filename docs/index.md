@@ -12,18 +12,20 @@ DynoStore components are divided on client and server components. Server compone
 
 ## Services installation using Docker (recommended)
 
-Los siguientes servicios se encuentran declarados en el archivo ```docker-compose.yml```. 
+DynoStore architechtures follows a microservice design, which includes the following components declared in the ```docker-compose.yml```: 
 
-+ ```apigateway```: API Gateway 
-+ ```auth```: User authentication.
-+ ```frontend```: GUI to navigate through uploaded files.
-+ ```pub_sub```: Publication/subscription service.
-+ ```metadata```: Metadata service.
-+ ```storage1, storage2, storage3, storage4, storage5```: storage containers.
++ ```apigateway```: serves as interface for clients and applications pushing and pulling data using DynoStore. 
++ ```auth```: for user registration and authentication.
++ ```frontend```: GUI to navigate through uploaded data.
++ ```pub_sub```: to manage the sharing of data based on a publication/subscription service.
++ ```metadata```: to manage the metadata.
++ ```datacontainer1, datacontainer2, datacontainer3, datacontainer4, datacontainer5```: data containers to store data.
 
 ```bash
 docker compose up -d
 ```
+
+For a further description of how to deploy these backend services, please refer to [Backend installation](/installation)
 
 ## Client instalation and usage
 
@@ -33,12 +35,12 @@ ProxyStore can be accessed through a Python client. This client implement evict,
 from dynostore.client import Client
 import uuid
 
-token_user = "user-0"
+token_user = "<<token-user-0>>"
 catalog = "catalog-0"
 data = b"Hello, World!"
 
 
-client = Client("metadata_server")
+client = Client("<<API_GATEWAY_IP>>")
 
 client.put(
     data = data,
@@ -51,3 +53,27 @@ received_data = client.get(
     token_user = token_user
 )
 ```
+
+## DynoStore connector for ProxyStore
+
+We implemented a DynoStore connector that can be used with [ProxyStore](https://docs.proxystore.dev/) for the transparent management of Python objects as proxies. Getting starte with DynoStore connector requires a few lines of Python code:
+
+```python
+from proxystore.proxy import Proxy
+from proxystore.store import Store
+from proxystore.connectors.cdn import DynoConnector
+
+# Create a DynoStore connector 
+connector = DynoConnector(apigateway="<<API_GATEWAY_IP>>", token_user="<<token-user-0>>", catalog="proxystore")
+store = Store('my-store', connector)
+
+data = 3
+
+# Store the object and get a proxy
+proxy = store.proxy(data)
+
+# Work on the proxy which behavies like the original object
+data = proxy ** 2
+```
+
+Check out [ProxyStore documentation](https://docs.proxystore.dev/) to learn more!

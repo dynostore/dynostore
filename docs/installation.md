@@ -61,8 +61,7 @@ storage6:
         - ./storage/storage6/data:/data
         - ./storage/storage6/abekeys:/var/www/html/abekeys
     environment:  # (3)
-        URL_METADATA: metadata
-        GATEWAY: apigateway
+        AUTH_HOST: auth
 ```
 
 1. The port ```20011``` must be opened. This is port used by the container to receive requests.
