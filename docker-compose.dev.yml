@@ -89,9 +89,13 @@ services:
       POSTGRES_DB: auth
       POSTGRES_USER: muyalmanager
       POSTGRES_PASSWORD: niCi7unamltrubrlJusp
+      ADMIN_USER: dynoadmin
+      ADMIN_PASSWORD: XeN5raSsdJkcOMN
+      ADMIN_EMAIL: admin@admin
     volumes:
       - psql-auth:/var/lib/postgresql/data
       - ./auth/schema-sql/auth.sql:/docker-entrypoint-initdb.d/auth.sql
+      - ./auth/configure:/configure
     restart: always
 
   frontend: #Interfez gráfica
