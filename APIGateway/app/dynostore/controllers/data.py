@@ -16,7 +16,6 @@ class DataController():
     ):
         url_to_delete = f'http://{metadaService}/api/storage/{tokenUser}/{keyObject}'
         response = requests.delete(url_to_delete)
-        print(response.text, flush=True)
         return response.json(), response.status_code
 
     def existsObject(

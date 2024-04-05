@@ -33,7 +33,6 @@ ProxyStore can be accessed through a Python client. This client implement evict,
 
 ```python
 from dynostore.client import Client
-import uuid
 
 token_user = "<<token-user-0>>"
 catalog = "catalog-0"

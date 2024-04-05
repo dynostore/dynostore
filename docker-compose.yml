@@ -11,7 +11,7 @@ services:
   apigateway:
     image: dynostore/apigateway:python
     ports:
-        - "8095:5000"
+        - "8095:80"
     environment:
       AUTH_HOST: auth
       PUB_SUB_HOST: pub_sub
@@ -123,6 +123,7 @@ services:
     volumes:
       - ./datacontainer/objects1/:/data/objects:rw
     environment:
+      APIGATEWAY_HOST: apigateway
       AUTH_HOST: auth
     
   datacontainer2:

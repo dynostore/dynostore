@@ -3,11 +3,11 @@ from flask import Flask, jsonify, request
 import requests
 from werkzeug.utils import secure_filename
 
-from dynostore.auth.management import createSuperUser
 from dynostore.controllers.auth import AuthController
 from dynostore.decorators.token import validateToken
 from dynostore.controllers.catalogs import CatalogController
 from dynostore.controllers.data import DataController
+from dynostore.controllers.datacontainer import DataContainerController
 
 
 app = Flask(__name__)
@@ -149,9 +149,16 @@ Route to delete an object
 def deleteObject(tokenuser, keyobject):
     return DataController.deleteObject(request, tokenuser, keyobject, METADATA_HOST)
 
+# Data containers management
+
+
+"""
+Route to regist a data container on the metadata service
+"""
+@app.route('/datacontainer/<admintoken>', methods=["POST"])
+def registDataContainer(admintoken):
+    return DataContainerController.regist(request, admintoken, METADATA_HOST)
+
 
 if __name__ == '__main__':
-    token = createSuperUser()
-    app.logger.critical(f"Token to create superuser: {token}")
-    app.logger.critical(f"Token saved in /app/.dynostore.txt")
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0', port=80)
