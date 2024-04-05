@@ -68,7 +68,7 @@ def head_object(objectkey, tokenuser):
         if storage.exists(objectkey):
             return jsonify({"message": "Data exists"}), 200
         else:
-            return jsonify({"error": "Data does not exist. Exception " + str(e)}), 404
+            return jsonify({"error": "Data does not exist."}), 404
     else:
         return jsonify({"error": "Invalid request method"}), 405
 

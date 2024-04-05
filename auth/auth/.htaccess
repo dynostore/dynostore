@@ -6,6 +6,8 @@ RewriteCond %{REQUEST_FILENAME} !-d
 
 RewriteCond %{QUERY_STRING} tokenuser=(\w+)
 RewriteRule ^auth/v1/user/?$ api.php?type=52&tokenuser=$1 [QSA,L]
+RewriteRule ^auth/v1/admin/?$ api.php?type=101&tokenuser=$1 [QSA,L]
+
 RewriteCond %{QUERY_STRING} access_token=(\w+)
 RewriteRule ^auth/v1/user/?$ api.php?type=53&access_token=$1 [QSA,L]
 RewriteRule ^auth/v1/users/a/([a-z0-9]{13})/([a-z0-9]{32,64})/?$ api.php?code=$1&tokenuser=$2&type=5 [NC,L]

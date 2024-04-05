@@ -80,7 +80,10 @@ if (isset($_GET['type'])) {
 		case 100:
 			$api->getAll($_GET['access_token']);
 			break;
-
+			
+		case 101:
+			$api->isAdmin($api->_request['tokenuser']);
+			break;
 
 		default:
 			$api->notFound();

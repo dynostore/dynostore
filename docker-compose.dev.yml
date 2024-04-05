@@ -8,7 +8,7 @@ services:
       context: ./metadata
       dockerfile: Dockerfile
     image: dynostore/metadata:v2
-    restart: unless-stopped
+    restart: always
     working_dir: /var/www/
     volumes:
       - ./metadata/app:/var/www
@@ -22,7 +22,7 @@ services:
       context: ./APIGateway
       dockerfile: Dockerfile
     ports:
-        - "8095:5000"
+        - "8095:80"
     volumes:
       - ./APIGateway/app/:/app
     environment:
@@ -59,7 +59,7 @@ services:
       - my-db:/var/lib/mysql
 
   auth: #Authentication service
-    image: dynostore/auth:muyal
+    image: dynostore/auth:v1
     build: 
       context: ./auth
       dockerfile: Dockerfile
@@ -79,7 +79,7 @@ services:
     restart: always
 
   db_auth: #Authentication database
-    image: dynostore/databaseauth:muyal
+    image: dynostore/databaseauth:v1
     build: 
       context: ./auth
       dockerfile: DB.Dockerfile
@@ -89,13 +89,16 @@ services:
       POSTGRES_DB: auth
       POSTGRES_USER: muyalmanager
       POSTGRES_PASSWORD: niCi7unamltrubrlJusp
+      ADMIN_USER: dynoadmin
+      ADMIN_PASSWORD: XeN5raSsdJkcOMN
+      ADMIN_EMAIL: admin@admin
     volumes:
       - psql-auth:/var/lib/postgresql/data
       - ./auth/schema-sql/auth.sql:/docker-entrypoint-initdb.d/auth.sql
+      - ./auth/configure:/configure
     restart: always
-
   frontend: #Interfez gráfica
-    image: dynostore/frontend:muyal
+    image: dynostore/frontend:v1
     build: 
       context: ./frontend
       dockerfile: Dockerfile
@@ -112,7 +115,7 @@ services:
     restart: always
 
   db_pub_sub: #Base de datos del servicio de publicación y suscripción
-    image: dynostore/dbpubsub:muyal
+    image: dynostore/dbpubsub:v1
     build: 
       context: ./pub_sub
       dockerfile: DB.Dockerfile
@@ -128,7 +131,7 @@ services:
     restart: always
 
   pub_sub: #Servicio de pub/sub 
-    image: dynostore/pubsub:muyal
+    image: dynostore/pubsub:v1
     build: 
       context: ./pub_sub
       dockerfile: Dockerfile
@@ -148,7 +151,7 @@ services:
     restart: always
 
   ######################
-  # Servicios de almacenamiento
+  # Storage services
   ######################
 
   datacontainer1:
@@ -163,6 +166,7 @@ services:
       - ./datacontainer/objects1/:/data/objects:rw
     environment:
       AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
     
   datacontainer2:
     image: dynostore/datacontainer:v1

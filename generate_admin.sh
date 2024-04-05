@@ -1,0 +1,1 @@
+docker compose exec db_auth python3 configure/create_admin.py

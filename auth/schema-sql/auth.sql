@@ -2,7 +2,7 @@ CREATE TABLE hierarchy(
     keyhierarchy varchar(100),
     acronym varchar(20),
     fullname varchar(200),
-    tokenhierarchy varchar(100),    
+    tokenhierarchy varchar(300),    
     father varchar(100) NOT NULL,
     PRIMARY KEY (keyhierarchy),
     UNIQUE(tokenhierarchy)    
@@ -17,14 +17,14 @@ CREATE TABLE token_mapping(
 );
 
 CREATE TABLE "users" (
-    "keyuser" varchar(100) COLLATE "default" NOT NULL,
+    "keyuser" varchar(300) COLLATE "default" NOT NULL,
     "username" varchar(100) COLLATE "default",
     "email" varchar(200) NOT NULL,
     "password" varchar(100) COLLATE "default",
-    "tokenuser" varchar(100),
-    "tokenorg" varchar(100),
-    "access_token" varchar(200),
-    "apikey" varchar(150) COLLATE "default",
+    "tokenuser" varchar(300),
+    "tokenorg" varchar(300),
+    "access_token" varchar(300),
+    "apikey" varchar(300) COLLATE "default",
     "isactive" boolean NOT NULL DEFAULT false,
     "isadmin" boolean NOT NULL DEFAULT false,
     "code" varchar(100),
@@ -40,9 +40,6 @@ CREATE TABLE "users" (
 )WITHOUT OIDS;
 
 --ALTER TABLE "users" OWNER TO "postgres";
-
-
-
 
 
 CREATE TABLE "logs" (
