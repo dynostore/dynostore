@@ -289,6 +289,26 @@ class User extends REST
         }
     }
 
+    public function isAdmin($token)
+    {
+        if ($this->getRequestMethod() != "GET") {
+            $error = array("message" => "Something went wrong.", "codigo" => 1);
+            $this->response($this->json($error), 406);
+        }
+        
+        $db = new DbHandler();
+        $result = $db->isAdmin($token);
+        if ($result) {
+            $msg['message'] = 'Ok';
+            $msg['data'] = $result;
+            $this->response($this->json($msg), 200);
+        } else {
+            $msg = array("message" => "No admin: " . $token . "/" . $result);
+            $this->response($this->json($msg), 404);
+        }
+
+    }
+
     public function createUser()
     {
         if ($this->getRequestMethod() != "POST") {
@@ -333,7 +353,7 @@ class User extends REST
                 // insert query 5b06d434c733c
                 $res = $db->insertUser($keyuser, $tokenuser, $username, $email, $passHash, $tokenorg, $access_token, $apikey, $isactive, $isadmin, $code);
                 $msg['msg'] = 'User created';
-        
+
                 $msg['access_token'] = $access_token;
                 $msg['apikey'] = $apikey;
                 $msg['user_token'] = $tokenuser;
@@ -341,7 +361,7 @@ class User extends REST
                 if ($res) {
 
                     $this->response($this->json($msg), 200);
-                 
+
                 } else {
                     $msg = array("message" => "Oops! An error occurred, please try again.", "codigo" => 1);
                     $this->response($this->json($msg), 400);
@@ -967,7 +987,7 @@ class User extends REST
             if ($data) {
                 $res = true;
             } else {
-                $res =  false;
+                $res = false;
             }
             return $res;
         }
@@ -1089,7 +1109,7 @@ class User extends REST
                         $db = new DbHandler();
                         $res = $this->hierarchyExist($this->_request['acronym'], $this->_request['fullname']);
 
-                        if($res){
+                        if ($res) {
                             $msg['message'] = "Organization exists.";
                             $msg["data"] = $res;
                             $msg['code'] = 0;
@@ -1192,7 +1212,7 @@ class User extends REST
                             $msg['message'] = "Acronym and name available.";
                             $msg['code'] = 1;
                             $this->response($this->json($msg), 404);
-                        }else{
+                        } else {
                             $msg['message'] = "Organization exists.";
                             $msg["data"] = $res;
                             $msg['code'] = 0;
@@ -1415,7 +1435,7 @@ class User extends REST
     {
         try {
             $url = 'http://ip-api.com/json';
-            $ch  = curl_init($url);
+            $ch = curl_init($url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             $response = curl_exec($ch);
             curl_close($ch);

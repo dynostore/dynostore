@@ -4,7 +4,7 @@ import requests
 from werkzeug.utils import secure_filename
 
 from dynostore.controllers.auth import AuthController
-from dynostore.decorators.token import validateToken
+from dynostore.decorators.token import validateToken, validateAdminToken
 from dynostore.controllers.catalogs import CatalogController
 from dynostore.controllers.data import DataController
 from dynostore.controllers.datacontainer import DataContainerController
@@ -156,6 +156,7 @@ def deleteObject(tokenuser, keyobject):
 Route to regist a data container on the metadata service
 """
 @app.route('/datacontainer/<admintoken>', methods=["POST"])
+@validateAdminToken(auth_host=AUTH_HOST)
 def registDataContainer(admintoken):
     return DataContainerController.regist(request, admintoken, METADATA_HOST)
 
