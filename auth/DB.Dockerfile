@@ -10,4 +10,3 @@ RUN pip3 install psycopg2 --break-system-packages
 
 ADD ./schema-sql/auth.sql /docker-entrypoint-initdb.d/auth.sql
 VOLUME psql-auth:/var/lib/postgresql/data
-
