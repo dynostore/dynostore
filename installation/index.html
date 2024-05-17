@@ -524,10 +524,16 @@
 <h2 id="prebuild-docker-images">Prebuild Docker images 🐋<a class="headerlink" href="#prebuild-docker-images" title="Permanent link">&para;</a></h2>
 <p>Prebuilt docker images are the easiest way to start using DynoStore locally. They are available on Docker Hub:</p>
 <ul>
-<li><a href="xx">dynostore/metadata</a></li>
-<li><a href="xx">dynostore/pubsub</a></li>
-<li><a href="xx">dynostore/auth</a></li>
-<li><a href="xx">dynostore/datacontainer</a></li>
+<li><a href="https://hub.docker.com/repository/docker/dynostore/apigateway/general">dynostore/apigateway:python</a></li>
+<li><a href="https://hub.docker.com/repository/docker/dynostore/metadata/general">dynostore/metadata:v2</a></li>
+<li><a href="https://hub.docker.com/repository/docker/dynostore/pubsub/general">dynostore/pubsub:v1</a></li>
+<li><a href="https://hub.docker.com/repository/docker/dynostore/auth/general">dynostore/auth:v1</a></li>
+<li><a href="https://hub.docker.com/repository/docker/dynostore/datacontainer/general">dynostore/datacontainer:v1</a></li>
+</ul>
+<p>Aditionally, there are available the database containers with the SQL scheme pre-loaded.</p>
+<ul>
+<li><a href="https://hub.docker.com/repository/docker/dynostore/databaseauth/general">dynostore/databaseauth:v1</a></li>
+<li><a href="https://hub.docker.com/repository/docker/dynostore/dbpubsub/general">dynostore/dbpubsub:v1</a></li>
 </ul>
 <h2 id="build-docker-images">Build Docker images<a class="headerlink" href="#build-docker-images" title="Permanent link">&para;</a></h2>
 <p>Alternatively, you can build your own images by executing the following command:</p>
@@ -542,15 +548,15 @@
 </span></code></pre></div></p>
 </li>
 <li>
-<p>To access DynoStore services over a different network, export <code>DYNO_HOST</code>.
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">DYNO_HOST</span><span class="o">=</span>your-ip-address
-</span></code></pre></div></p>
-</li>
-<li>
 <p>Deploy Docker containers on your machine. It will take some time to download the latest DynoStore release and its related services from DockerHub and create containers.</p>
 </li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</span></code></pre></div>
+<ul>
+<li>Complete the deployment of the <code>APIGateway</code> and <code>metadata</code> services by migrating their databases using the following command:</li>
+</ul>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>bash<span class="w"> </span>configure_services.sh
 </span></code></pre></div>
 <h3 id="creating-an-admin-account">Creating an admin account<a class="headerlink" href="#creating-an-admin-account" title="Permanent link">&para;</a></h3>
 <p>You can register a user but by default, it will not have rights even to view and manage data containers. Thus you should create an admin user. Please use the command below:</p>
@@ -605,7 +611,7 @@
 <p>A data container must be registered  on DynoStore to let the metadata server know it is available. This is performed by executing the following command:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>storage6<span class="w"> </span>bash<span class="w"> </span>regist_container.sh<span class="w"> </span>tokenuser<span class="w"> </span>memory<span class="w"> </span>storage
 </span></code></pre></div>
-<p>The <code>tokenuser</code> parameter refers to a key assigned to the administrator of the system to add and remove data containers from DynoStore. To get your tokens, please refer to <a href="#creating-an-admin-account">Setting a admin user</a>.</p>
+<p>The <code>tokenuser</code> parameter refers to a key assigned to the administrator of the system to add and remove data containers from DynoStore. To get your tokens, please refer to <a href="#creating-an-admin-account">Creating an admin account</a>.</p>
 
 
 
