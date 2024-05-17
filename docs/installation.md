@@ -47,7 +47,7 @@ bash configure_services.sh
 
 ### Creating an admin account
 
-You can register a user but by default, it will not have rights even to view and manage data containers. Thus you should create an admin user. Please use the command below:
+You can register a user but by default, it will not have rights even to view and manage data containers. Thus, you should create an admin user. Please use the command below:
 
 ```bash
 docker exec -it db_auth bash -ic 'python3 configure/create_admin.py'
