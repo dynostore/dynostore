@@ -51,7 +51,7 @@ services:
     expose:
       - "80"
     environment:
-      DB_USER: v1manager
+      DB_USER: muyalmanager
       DB_PASSWORD: niCi7unamltrubrlJusp
       DB_NAME: auth
       DB_HOST: db_auth
@@ -65,7 +65,7 @@ services:
       - "5432"
     environment:
       POSTGRES_DB: auth
-      POSTGRES_USER: v1manager
+      POSTGRES_USER: muyalmanager
       POSTGRES_PASSWORD: niCi7unamltrubrlJusp
       ADMIN_USER: dynoadmin
       ADMIN_PASSWORD: XeN5raSsdJkcOMN
@@ -93,7 +93,7 @@ services:
       - "5432"
     environment:
       POSTGRES_DB: pub_sub
-      POSTGRES_USER: v1manager
+      POSTGRES_USER: muyalmanager
       POSTGRES_PASSWORD: sicuhowradRaxi5R2ke6
     volumes:
       - psql-pubsub:/var/lib/postgresql/data
@@ -107,7 +107,7 @@ services:
     expose:
       - "80"
     environment:
-      DB_USER: v1manager
+      DB_USER: muyalmanager
       DB_PASSWORD: sicuhowradRaxi5R2ke6
       DB_NAME: pub_sub
       DB_HOST: db_pub_sub
