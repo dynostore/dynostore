@@ -28,5 +28,11 @@ RUN mkdir -p /home/$user/.composer && \
 
 # Set working directory
 WORKDIR /var/www
+ADD app /var/www
+
+
+# Change permissions to the user
+RUN chown -R $user:www-data /var/www
+
 
 USER $user
