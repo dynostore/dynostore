@@ -221,8 +221,10 @@ class DbHandler {
 	}
 
 	public function getFilesByCatalog($key) {
+		
+
 		try {
-			$sql = "SELECT * FROM catalogs_files WHERE tokencatalog=?;";
+			$sql = "SELECT token_file FROM catalogs_files WHERE tokencatalog=?;";
 			$stmt = $this->db->prepare($sql);
 			$stmt->bindParam(1, $key, PDO::PARAM_STR);
 			$stmt->execute();

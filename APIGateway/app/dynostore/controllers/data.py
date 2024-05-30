@@ -40,17 +40,19 @@ class DataController():
         
         print(response.text, flush=True)
 
-        if response.status_code >= 500:
+        if response.status_code >= 400:
             return response.json(), response.status_code
 
+        print(response.text, flush=True)
         data = response.json()
+        
         routes = data['data']['routes']
         results = []
         objectRes = None
         
         for route in routes:
             url_node = route['route']
-            url_node = f'http://{url_node}'
+            url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
             response = requests.get(url_node)
             if response.status_code != 200:
                 return response.json(), response.status_code
@@ -74,6 +76,7 @@ class DataController():
         keyObject: str
     ):
         files = request.files
+        
         request_json = json.loads(files['json'].read().decode('utf-8'))
         request_bytes = files['data'].read()
         print(request_json, flush=True)
@@ -97,15 +100,18 @@ class DataController():
             url_to_push_metadata = f'http://{metadaService}/api/storage/{tokenUser}/{tokenCatalog}/{keyObject}'
 
             response = requests.put(url_to_push_metadata, json=request_json)
+            print("holas",response.text, flush=True)
             if response.status_code != 201:
                 return response.json(), response.status_code
 
             nodes = response.json()['nodes']
 
             for i,node in enumerate(nodes):
+                print(node, flush=True)
                 url_node = node['route']
-                url_node = f'http://{url_node}'
+                url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
                 response = requests.put(url_node, data=data[i])
+                print(response.text, flush=True)
                 if response.status_code != 201:
                     return response.json(), response.status_code
 

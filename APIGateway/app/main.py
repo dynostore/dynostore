@@ -112,6 +112,14 @@ def deleteCatalog(tokenuser, catalog):
     return jsonify(results.json()), results.status_code
 
 
+"""
+List files in catalog
+"""
+@app.route('/pubsub/<tokenuser>/catalog/<catalog>/list', methods=["GET"])
+@validateToken(auth_host=AUTH_HOST)
+def listCatalogFiles(tokenuser, catalog):
+    return CatalogController.listFilesInCatalog(PUB_SUB_HOST, catalog, tokenuser)
+
 # Storage service routes
 
 """
@@ -162,16 +170,21 @@ def registDataContainer(admintoken):
 
 
 # Development
-@app.route("/statistics", methods=["GET"])
-def statistics():
-    url_service = f'http://{METADATA_HOST}/statistics'
+@app.route("/statistic/<admintoken>", methods=["GET"])
+@validateAdminToken(auth_host=AUTH_HOST)
+def statistics(admintoken):
+    url_service = f"http://{METADATA_HOST}/api/servers/{admintoken}"
+    print(url_service, flush=True)
     results = requests.get(url_service)
+    print(results.text, flush=True)
     return jsonify(results.json()), results.status_code
 
-@app.route("/clean", methods=["GET"])
-def clean():
-    url_service = f'http://{METADATA_HOST}/clean'
+@app.route("/clean/<admintoken>", methods=["GET"])
+@validateAdminToken(auth_host=AUTH_HOST)
+def clean(admintoken):
+    url_service = f'http://{METADATA_HOST}/api/clean'
     results = requests.get(url_service)
+    print(results.text, flush=True)
     return jsonify(results.json()), results.status_code
 
 if __name__ == '__main__':

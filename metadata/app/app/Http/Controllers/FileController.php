@@ -131,13 +131,13 @@ class FileController extends Controller
                 ->first();
         } catch (QueryException $e) {
             return response()->json([
-                "message" => "Object not found or not authorized"
+                "message" => "Object " . $keyfile . " not found or not authorized"
             ], 404);
         }
 
         if (!$file) {
             return response()->json([
-                "message" => "Object not found or not authorized"
+                "message" =>  "Object " . $keyfile . "  not found or not authorized for " . $tokenuser
             ], 404);
         }
 

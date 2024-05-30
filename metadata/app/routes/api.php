@@ -17,9 +17,9 @@ use App\Http\Middleware\EnsureTokenIsValid;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
+#Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+#    return $request->user();
+#});
 
 Route::group(['prefix' => 'storage', 'middleware' => [EnsureTokenIsValid::class]], function(){
     Route::get('{tokenuser}/{keyfile}/exists', [FileController::class, 'exists']);
@@ -31,4 +31,4 @@ Route::group(['prefix' => 'storage', 'middleware' => [EnsureTokenIsValid::class]
 Route::post('servers/{tokenuser}', [ServerController::class, 'store']);
 Route::get('servers/{tokenuser}', [ServerController::class, 'index']);
 Route::get('servers/{tokenuser}/statistics', [ServerController::class, 'statistics']);
-Route::get('servers/clean', [ServerController::class, 'statistics']);
+Route::get('clean', [ServerController::class, 'clean']);

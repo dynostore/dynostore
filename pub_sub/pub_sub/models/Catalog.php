@@ -215,4 +215,24 @@ class Catalog extends REST
             $this->response($this->json($msg), 302);
         }
     }
+
+    public function listFilesInCatalog($token_catalog){
+        ini_set('memory_limit', '1024M');
+        if ($this->getRequestMethod() != "GET") {
+            $msg = array("message" => "Method not available.");
+            $this->response($this->json($msg), 404);
+        }
+
+        if (isset ($token_catalog)) {
+            $db = new DbHandler();
+            $files = $db->getFilesByCatalog($token_catalog);
+            #print_r($files);
+            $msg['message'] = "Data found";
+            $msg['data'] = $files;
+            $this->response($this->json($msg), 201);
+        } else {
+            $msg = array("message" => "Object key or catalog missing.");
+            $this->response($this->json($msg), 400);
+        }
+    }
 }

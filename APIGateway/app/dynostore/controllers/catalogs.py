@@ -56,3 +56,14 @@ class CatalogController():
         results = requests.post(url_service)
         return results.json(), results.status_code
     
+    @staticmethod
+    def listFilesInCatalog(
+        pubsub: str,
+        catalog: str,
+        tokenuser: str
+    ):
+        url_service = f'http://{pubsub}/list/catalog/{catalog}'
+        #print(url_service, flush=True)
+        results = requests.get(url_service)
+        #print(results.text, flush=True)
+        return results.json(), results.status_code
