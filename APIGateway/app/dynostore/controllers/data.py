@@ -4,6 +4,13 @@ import pickle
 
 from dynostore.controllers.catalogs import CatalogController
 from drex.utils.reliability import ida
+from drex.utils.load_data import RealRecords
+
+from drex.schedulers.algorithm4 import *
+import numpy as np
+import sys
+
+
 
 class DataController():
 
@@ -72,7 +79,8 @@ class DataController():
         pubsubService: str,
         catalog: str,
         tokenUser: str,
-        keyObject: str
+        keyObject: str,
+        predictor
     ):
         files = request.files
         
@@ -80,9 +88,34 @@ class DataController():
         request_bytes = files['data'].read()
         print(request_json, flush=True)
         data = []
-        if request_json['chunks'] > 1:
-            n = request_json['chunks']
-            k = request_json['required_chunks']
+        if request_json['resiliency'] > 1:
+            #n = request_json['chunks']
+            # = request_json['required_chunks']
+            
+            # get available nodes
+            url_service = f"http://{metadaService}/api/servers/{tokenUser}"
+            results = requests.get(url_service)
+            
+            print(results, flush=True)
+            servers = results.json()['data']
+            numberNodes = len(servers)
+            
+            reliability_nodes = np.random.rand(numberNodes)
+            max_rel = 0.3
+            min_rel = 0.01
+            reliability_nodes = reliability_nodes * (max_rel - min_rel) + min_rel
+            bandwidths = [10] * numberNodes
+            # Reliability min we want to meet
+            reliability_threshold = 0.99
+            file_size_in_mb = len(request_bytes) / 1024 / 1024
+            real_records = RealRecords(dir_data="data/")
+            max_node_size = max([server['size'] for server in servers])
+            min_data_size = sys.maxsize
+            total_node_size = sum([server['size'] for server in servers])
+            
+            nodes, n, k, node_sizes = algorithm4(numberNodes, reliability_nodes,
+                                         bandwidths, reliability_threshold, file_size_in_mb, real_records, node_sizes,
+                                         max_node_size, min_data_size, system_saturation, total_node_size, predictor)
             data = ida.split_bytes(request_bytes, n, k)
             data = [pickle.dumps(fragment) for fragment in data]
         else:

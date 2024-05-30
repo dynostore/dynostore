@@ -9,6 +9,7 @@ from dynostore.controllers.catalogs import CatalogController
 from dynostore.controllers.data import DataController
 from dynostore.controllers.datacontainer import DataContainerController
 
+from drex.utils.prediction import Predictor
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
@@ -16,6 +17,8 @@ app.config["DEBUG"] = True
 AUTH_HOST = os.getenv('AUTH_HOST')
 PUB_SUB_HOST = os.getenv('PUB_SUB_HOST')
 METADATA_HOST = os.getenv('METADATA_HOST')
+
+predictor = Predictor()  # Update for different file sizes
 
 # Authentication service routes
 """
@@ -128,7 +131,7 @@ Route to upload an object
 @app.route('/storage/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 def uploadObject(tokenuser, catalog, keyobject):
-    return DataController.pushData(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
+    return DataController.pushData(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject, predictor)
 
 
 """
