@@ -97,7 +97,7 @@ class DataController():
             results = requests.get(url_service)
             
             print(results, flush=True)
-            servers = results.json()['data']
+            servers = results.json()
             numberNodes = len(servers)
             
             reliability_nodes = np.random.rand(numberNodes)
@@ -109,9 +109,9 @@ class DataController():
             reliability_threshold = 0.99
             file_size_in_mb = len(request_bytes) / 1024 / 1024
             real_records = RealRecords(dir_data="data/")
-            max_node_size = max([server['size'] for server in servers])
+            max_node_size = max([server['storage'] for server in servers]) / 1024 / 1024
             min_data_size = sys.maxsize
-            total_node_size = sum([server['size'] for server in servers])
+            total_node_size = sum([server['storage'] for server in servers]) / 1024 / 1024
             
             nodes, n, k, node_sizes = algorithm4(numberNodes, reliability_nodes,
                                          bandwidths, reliability_threshold, file_size_in_mb, real_records, node_sizes,
