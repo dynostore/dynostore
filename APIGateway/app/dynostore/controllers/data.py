@@ -3,8 +3,7 @@ import json
 import pickle
 
 from dynostore.controllers.catalogs import CatalogController
-from dynostore.datamanagement.reliability import ida
-
+from drex.utils.reliability import ida
 
 class DataController():
 
