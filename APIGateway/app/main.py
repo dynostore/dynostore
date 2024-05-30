@@ -161,5 +161,18 @@ def registDataContainer(admintoken):
     return DataContainerController.regist(request, admintoken, METADATA_HOST)
 
 
+# Development
+@app.route("/statistics", methods=["GET"])
+def statistics():
+    url_service = f'http://{METADATA_HOST}/statistics'
+    results = requests.get(url_service)
+    return jsonify(results.json()), results.status_code
+
+@app.route("/clean", methods=["GET"])
+def clean():
+    url_service = f'http://{METADATA_HOST}/clean'
+    results = requests.get(url_service)
+    return jsonify(results.json()), results.status_code
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=80)

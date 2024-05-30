@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     libpng-dev \
     libonig-dev \
-    libxml2-dev 
+    libxml2-dev \
+    zip unzip
 
 # Clear cache
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*

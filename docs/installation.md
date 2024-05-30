@@ -112,7 +112,7 @@ docker compose up -d
 A data container must be registered  on DynoStore to let the metadata server know it is available. This is performed by executing the following command:
 
 ```bash
-docker compose exec storage6 bash regist_container.sh tokenuser memory storage
+docker compose exec storage6 python regist_on_metadata.py admintoken address -m memory -s storage
 ```
 
-The ```tokenuser``` parameter refers to a key assigned to the administrator of the system to add and remove data containers from DynoStore. To get your tokens, please refer to [Creating an admin account](#creating-an-admin-account).
+The ```admintoken``` parameter refers to a key assigned to the administrator of the system to add and remove data containers from DynoStore. To get your tokens, please refer to [Creating an admin account](#creating-an-admin-account).

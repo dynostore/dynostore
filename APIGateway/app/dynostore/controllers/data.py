@@ -76,6 +76,7 @@ class DataController():
         files = request.files
         request_json = json.loads(files['json'].read().decode('utf-8'))
         request_bytes = files['data'].read()
+        print(request_json, flush=True)
         data = []
         if request_json['chunks'] > 1:
             n = request_json['chunks']

@@ -92,4 +92,19 @@ class ServerController extends Controller
             "message" => "Server record created"
         ], 201);
     }
+
+    public function clean()
+    {
+        $servers = Server::all()->toArray();
+
+        foreach ($servers as $key => $server) {
+            $url = "http://" . $server["url"] . '/clean';
+            $response = Http::get($url);
+            if ($response->status() == 200) {
+                $servers[$key]["clean"] = "success";
+            } else {
+                $servers[$key]["clean"] = "failed";
+            }
+        }
+    }
 }
