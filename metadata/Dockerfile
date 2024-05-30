@@ -11,8 +11,7 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
-    unzip zip \
-    python3 python3-pip 
+    unzip zip
 
 # Clear cache
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -32,8 +31,6 @@ RUN mkdir -p /home/$user/.composer && \
 WORKDIR /var/www
 ADD app /var/www
 
-# Install Python dependencies
-RUN pip install drex==0.0.246
 
 # Change permissions to the user
 RUN chown -R $user:www-data /var/www
