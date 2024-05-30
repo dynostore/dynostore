@@ -67,6 +67,8 @@ services:
       - db_auth
     expose:
       - "80"
+    ports:
+      - "8090:80"
     environment:
       DB_USER: muyalmanager
       DB_PASSWORD: niCi7unamltrubrlJusp
@@ -103,7 +105,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "8090:80"
+      - "8091:80"
     depends_on:
       - auth
       - pub_sub
@@ -160,7 +162,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20001:5000"
+        - "20006:5000"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects1/:/data/objects:rw

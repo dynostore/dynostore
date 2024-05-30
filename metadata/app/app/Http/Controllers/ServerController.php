@@ -29,7 +29,24 @@ class ServerController extends Controller
             ], 401);
         }
 
-        $servers = Server::all();
+        $servers = Server::all()->toArray();
+
+        foreach ($servers as $key => $server) {
+            $files_utilization = DB::table('files_in_servers')
+                ->join('files', 'files.keyfile', '=', 'files_in_servers.keyfile')
+                ->where('server_id', $server["id"])
+                ->sum('size');
+            $chunks_utilization = DB::table('chunks')
+                ->where('server_id', $server["id"])
+                ->sum('size');
+            $utilization = $files_utilization + $chunks_utilization;
+            $servers[$key]["utilization"] = $utilization;
+            $servers[$key]["n_files"] = DB::table('files_in_servers')
+                ->join('files', 'files.keyfile', '=', 'files_in_servers.keyfile')
+                ->where('server_id', $server["id"])
+                ->count();
+        }
+
         return response($servers, 200);
     }
 
@@ -52,6 +69,10 @@ class ServerController extends Controller
                 ->join('files', 'files.keyfile', '=', 'files_in_servers.keyfile')
                 ->where('server_id', $server["id"])
                 ->sum('size');
+            $servers[$key]["n_files"] = DB::table('files_in_servers')
+                ->join('files', 'files.keyfile', '=', 'files_in_servers.keyfile')
+                ->where('server_id', $server["id"])
+                ->count();
             $chunks_utilization = DB::table('chunks')
                 ->where('server_id', $server["id"])
                 ->sum('size');
@@ -91,5 +112,33 @@ class ServerController extends Controller
         return response()->json([
             "message" => "Server record created"
         ], 201);
+    }
+
+    public function clean()
+    {
+        $servers = Server::all()->toArray();
+
+        #print_r($servers);
+
+        foreach ($servers as $key => $server) {
+            $url = $server["url"] . '/clean';
+            $response = Http::get($url);
+
+            if ($response->status() == 200) {
+                $servers[$key]["clean"] = "success";
+            } else {
+                $servers[$key]["clean"] = "failed";
+            }
+        }
+
+        foreach ($servers as $key => $server) {
+            $files_utilization = DB::table('files_in_servers')
+                ->delete();
+            $chunks_utilization = DB::table('chunks')
+                ->where('server_id', $server["id"])
+                ->delete();
+        }
+
+        return $servers;
     }
 }

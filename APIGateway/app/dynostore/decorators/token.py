@@ -13,7 +13,6 @@ def validateToken(auth_host: str = 'auth'):
         def wrapper(*args, **kwargs):
             tokenUser = kwargs.get('tokenuser')
             response, code = AuthController.validateUserToken(tokenUser, auth_host)
-            
             if code != 200:
                 return make_response(jsonify({'message': 'Unauthorized'}), 401)
             

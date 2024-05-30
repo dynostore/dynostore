@@ -14,6 +14,9 @@ if (isset($_GET['type'])) {
 		case 2:
 			$api->insertFileInCatalog($_GET['catalog'], $_GET['keyobject']);
 			break;
+		case 3:
+			$api->listFilesInCatalog($_GET['catalog']);
+			break;
 		default:
 			$api->notFound();
 			break;
