@@ -51,6 +51,7 @@ class FileController extends Controller
         
         $file->owner = $tokenuser;
 
+        # Get servers and their utilization
         try {
             $nodes = Server::where('up', True)->get()->toArray();
             foreach ($nodes as $key => $node) {
@@ -74,7 +75,7 @@ class FileController extends Controller
             ], 409);
         }
 
-
+        # Regist object metadata
         try {
             $file = File::updateOrCreate(
                 ["keyfile" => $keyfile],
@@ -95,6 +96,7 @@ class FileController extends Controller
             ], 400);
         }
 
+        # Allocate object
         $data = Server::allocate($file, $nodes, $tokenuser);
 
         if ($file->is_encrypted == 1) {
