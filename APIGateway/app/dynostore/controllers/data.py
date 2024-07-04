@@ -1,6 +1,7 @@
 import requests
 import json
 import pickle
+import multiprocessing
 
 from dynostore.controllers.catalogs import CatalogController
 from drex.utils.reliability import ida
@@ -34,6 +35,14 @@ class DataController():
         response = requests.get(url_to_pull_metadata)
         return response.json(), response.status_code
 
+    def downloadChunk(route):
+        url_node = route['route']
+        url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
+        response = requests.get(url_node)
+        if response.status_code != 200:
+            return response.json(), response.status_code
+        return response.content
+    
     def pullData(
         request,
         tokenUser: str,
@@ -53,16 +62,19 @@ class DataController():
         data = response.json()
         
         routes = data['data']['routes']
-        results = []
+        #results = []
         objectRes = None
         
-        for route in routes:
-            url_node = route['route']
-            url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
-            response = requests.get(url_node)
-            if response.status_code != 200:
-                return response.json(), response.status_code
-            results.append(response.content)
+        with multiprocessing.Pool(len(routes)) as pool:
+            results = pool.map(DataController::downloadChunk, routes)
+        
+        #for route in routes:
+        #    url_node = route['route']
+        #    url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
+        #    response = requests.get(url_node)
+        #    if response.status_code != 200:
+        #        return response.json(), response.status_code
+        #    results.append(response.content)
             
         
         if len(results) > 1:
