@@ -64,20 +64,36 @@ class DataController():
         data = response.json()
         
         routes = data['data']['routes']
-        results = []
-        num_processes = multiprocessing.cpu_count()
-        objectRes = None
+#<<<<<<< HEAD
+#        results = []
+#        num_processes = multiprocessing.cpu_count()
+#        objectRes = None
         
         #with multiprocessing.Pool(num_processes) as pool:
         #    results = pool.map(DataController.downloadChunk, routes)
         
-        for route in routes:
-            url_node = route['route']
-            url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
-            response = requests.get(url_node)
-            if response.status_code != 200:
-                return response.json(), response.status_code
-            results.append(response.content)
+#        for route in routes#:
+#            url_node = route['route']
+#            url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
+#            response = requests.get(url_node)
+#            if response.status_code != 200:
+#                return response.json(), response.status_code
+#            results.append(response.content)
+#=======
+        #results = []
+        objectRes = None
+        
+        with multiprocessing.Pool(len(routes)) as pool:
+            results = pool.map(DataController::downloadChunk, routes)
+        
+        #for route in routes:
+        #    url_node = route['route']
+        #    url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
+        #    response = requests.get(url_node)
+        #    if response.status_code != 200:
+        #        return response.json(), response.status_code
+        #    results.append(response.content)
+#>>>>>>> 1b2662c8e154bfba89e84e9f6531a4307ce239be
             
         
         if len(results) > 1:
