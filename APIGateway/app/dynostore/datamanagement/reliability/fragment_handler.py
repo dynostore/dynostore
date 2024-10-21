@@ -99,6 +99,7 @@ def fragment_reader_bytes(fragments):
     m_ = fragments[0].m
     n_ = fragments[0].n
     p_ = fragments[0].p
+    original_size_ = fragments[0].original_size
     
     # there should be at least m_ fragments
     if len(fragments)<m_:
@@ -132,4 +133,4 @@ def fragment_reader_bytes(fragments):
     if count<m: 
         raise ValueError("There are duplicate fragments. The total number of different fragments are insufficient to assemble the file.")
     
-    return (m_, n_, p_, data_fragments)
+    return (m_, n_, p_, data_fragments,original_size_)

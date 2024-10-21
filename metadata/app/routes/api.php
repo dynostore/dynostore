@@ -31,4 +31,5 @@ Route::group(['prefix' => 'storage', 'middleware' => [EnsureTokenIsValid::class]
 Route::post('servers/{tokenuser}', [ServerController::class, 'store']);
 Route::get('servers/{tokenuser}', [ServerController::class, 'index']);
 Route::get('servers/{tokenuser}/statistics', [ServerController::class, 'statistics']);
+Route::get('servers/delete/{tokenuser}', [ServerController::class, 'deleteAll']);
 Route::get('clean', [ServerController::class, 'clean']);

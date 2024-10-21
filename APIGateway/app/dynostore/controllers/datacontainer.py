@@ -11,3 +11,11 @@ class DataContainerController():
         print(r.text, flush=True)
         return r.text
         #return r.json(), r.status_code
+
+    def delete_all(request, admintoken: str, metadataService: str):
+        url_to_regist = f"http://{metadataService}/api/servers/delete/{admintoken}"
+        print(url_to_regist, flush=True)
+        r = requests.get(url_to_regist)
+        print(r.status_code, flush=True)
+        print(r.text, flush=True)
+        return r.text

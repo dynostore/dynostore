@@ -131,6 +131,7 @@ Route to upload an object
 @app.route('/storage/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 def uploadObject(tokenuser, catalog, keyobject):
+    #print("NEW", tokenuser, catalog, keyobject, flush=True)
     return DataController.pushData(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject, predictor)
 
 
@@ -171,15 +172,19 @@ Route to regist a data container on the metadata service
 def registDataContainer(admintoken):
     return DataContainerController.regist(request, admintoken, METADATA_HOST)
 
+@app.route('/datacontainer/<admintoken>/all', methods=["DELETE"])
+@validateAdminToken(auth_host=AUTH_HOST)
+def deleteAllDCs(admintoken):
+    return DataContainerController.delete_all(request, admintoken, METADATA_HOST)
 
 # Development
 @app.route("/statistic/<admintoken>", methods=["GET"])
 @validateAdminToken(auth_host=AUTH_HOST)
 def statistics(admintoken):
     url_service = f"http://{METADATA_HOST}/api/servers/{admintoken}"
-    print(url_service, flush=True)
+    #print(url_service, flush=True)
     results = requests.get(url_service)
-    print(results.text, flush=True)
+    #print(results.text, flush=True)
     return jsonify(results.json()), results.status_code
 
 @app.route("/clean/<admintoken>", methods=["GET"])

@@ -141,4 +141,13 @@ class ServerController extends Controller
 
         return $servers;
     }
+
+    public function deleteAll(){
+        DB::table('files_in_servers')
+                ->delete();
+                DB::table('chunks')
+                ->delete();
+        DB::table("servers")->delete();
+        return "Servers deleted";
+    }
 }

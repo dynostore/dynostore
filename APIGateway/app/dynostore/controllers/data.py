@@ -1,9 +1,12 @@
 import requests
 import json
 import pickle
+import multiprocessing
 
+import time
 from dynostore.controllers.catalogs import CatalogController
-from drex.utils.reliability import ida
+#from drex.utils.reliability import ida
+from dynostore.datamanagement.reliability import ida
 from drex.utils.load_data import RealRecords
 
 from drex.schedulers.algorithm4 import *
@@ -34,6 +37,14 @@ class DataController():
         response = requests.get(url_to_pull_metadata)
         return response.json(), response.status_code
 
+    def downloadChunk(route):
+        url_node = route['route']
+        url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
+        response = requests.get(url_node)
+        if response.status_code != 200:
+            return response.json(), response.status_code
+        return response.content
+    
     def pullData(
         request,
         tokenUser: str,
@@ -54,7 +65,11 @@ class DataController():
         
         routes = data['data']['routes']
         results = []
+        num_processes = multiprocessing.cpu_count()
         objectRes = None
+        
+        #with multiprocessing.Pool(num_processes) as pool:
+        #    results = pool.map(DataController.downloadChunk, routes)
         
         for route in routes:
             url_node = route['route']
@@ -73,6 +88,17 @@ class DataController():
 
         return objectRes, 200, {'Content-Type': 'application/octet-stream'}
 
+    def uploadChunk(node_data):
+        #print(node, flush=True)
+        node = node_data[0]
+        data = node_data[1]
+        url_node = node['route']
+        url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
+        response = requests.put(url_node, data=data)
+        #print(response.text, flush=True)
+        if response.status_code != 201:
+            return response.json(), response.status_code
+
     def pushData(
         request,
         metadaService: str,
@@ -82,13 +108,14 @@ class DataController():
         keyObject: str,
         predictor
     ):
+        start_time = time.perf_counter_ns()
         files = request.files
-        
+        print(files, flush=True)
         request_json = json.loads(files['json'].read().decode('utf-8'))
         request_bytes = files['data'].read()
         print(request_json, flush=True)
         data = []
-        if request_json['resiliency'] > 1:
+        if request_json['resiliency'] >= 1:
             #n = request_json['chunks']
             # = request_json['required_chunks']
             
@@ -109,16 +136,21 @@ class DataController():
             reliability_threshold = 0.99
             file_size_in_mb = len(request_bytes) / 1024 / 1024
             real_records = RealRecords(dir_data="data/")
-            max_node_size = max([server['storage'] for server in servers]) / 1024 / 1024
+            node_sizes = [int(server['storage']) for server in servers]
+            max_node_size = max([int(server['storage']) for server in servers]) / 1024 / 1024
             min_data_size = sys.maxsize
-            total_node_size = sum([server['storage'] for server in servers]) / 1024 / 1024
+            total_node_size = sum([int(server['storage']) for server in servers]) / 1024 / 1024
             
             nodes, n, k, node_sizes = algorithm4(numberNodes, reliability_nodes,
                                          bandwidths, reliability_threshold, file_size_in_mb, real_records, node_sizes,
                                          max_node_size, min_data_size, system_saturation, total_node_size, predictor)
             data = ida.split_bytes(request_bytes, n, k)
             data = [pickle.dumps(fragment) for fragment in data]
+            request_json['chunks'] = n
+            request_json['required_chunks'] = k
         else:
+            request_json['chunks'] = 1
+            request_json['required_chunks'] = 1
             data.append(request_bytes)
             
 
@@ -137,7 +169,16 @@ class DataController():
                 return response.json(), response.status_code
 
             nodes = response.json()['nodes']
+            
+            num_processes = multiprocessing.cpu_count()
+            objectRes = None
+            
+            nodes_datas = [[nodes[i], data[i]] for i in range(len(nodes))]
+            upload_start = time.perf_counter_ns()
+            #with multiprocessing.Pool(num_processes) as pool:
+            #    results = pool.map(DataController.uploadChunk, nodes_datas)
 
+            
             for i,node in enumerate(nodes):
                 print(node, flush=True)
                 url_node = node['route']
@@ -146,13 +187,15 @@ class DataController():
                 print(response.text, flush=True)
                 if response.status_code != 201:
                     return response.json(), response.status_code
+            
+            upload_end = time.perf_counter_ns()
 
             results, code = CatalogController.registFileInCatalog(
                 pubsubService, tokenCatalog, tokenUser, keyObject)
 
             if code != 201:
                 return results, code
-
-            return "Objects pushed successfully", response.status_code
+            end_time = time.perf_counter_ns()
+            return {"total_time": (end_time - start_time), "time_upload": (upload_end - upload_start)}, response.status_code
         else:
             return results, status_code
