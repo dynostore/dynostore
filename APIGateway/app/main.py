@@ -143,6 +143,13 @@ Route to download an object
 def downloadObject(tokenuser, keyobject):
     return DataController.pullData(request, tokenuser, keyobject, METADATA_HOST, PUB_SUB_HOST)
 
+# DREX Experiments (temporal functions)
+@app.route('/drex/storage/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
+@validateToken(auth_host=AUTH_HOST)
+def uploadObjectDREX(tokenuser, catalog, keyobject):
+    #print("NEW", tokenuser, catalog, keyobject, flush=True)
+    return DataController.pushDataDRex(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
+
 
 """
 Route to check if an object exists

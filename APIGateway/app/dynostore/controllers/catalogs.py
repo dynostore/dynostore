@@ -15,6 +15,7 @@ class CatalogController():
     ):
         
         url_service = f'http://{pubsub}/catalog/{catalog}/?tokenuser={tokenuser}'
+        print(url_service, flush=True)
         data = {
             'dispersemode': dispersemode, 
             'encryption': encryption, 
@@ -22,6 +23,7 @@ class CatalogController():
             'processed': processed
             }
         results = requests.put(url_service, json=data)
+        print(results.text, flush=True)
         return results.json(), results.status_code
     
     

@@ -25,6 +25,7 @@ Route::group(['prefix' => 'storage', 'middleware' => [EnsureTokenIsValid::class]
     Route::get('{tokenuser}/{keyfile}/exists', [FileController::class, 'exists']);
     Route::delete('{tokenuser}/{keyfile}', [FileController::class, 'delete']);
     Route::put('{tokenuser}/{tokencatalog}/{keyfile}', [FileController::class, 'push']);
+    Route::put('drex/{tokenuser}/{tokencatalog}/{keyfile}', [FileController::class, 'pushDREX']);
     Route::get('{tokenuser}/{keyfile}', [FileController::class, 'pull']);
 });
 

@@ -163,7 +163,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20006:5000"
+        - "20001:5000"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects1/:/data/objects:rw
@@ -183,6 +183,7 @@ services:
       - ./datacontainer/objects2/:/data/objects:rw
     environment:
       AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
 
   datacontainer3:
     image: dynostore/datacontainer:v1
@@ -196,6 +197,7 @@ services:
       - ./datacontainer/objects3/:/data/objects:rw
     environment:
       AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
 
   datacontainer4:
     image: dynostore/datacontainer:v1
@@ -209,6 +211,7 @@ services:
       - ./datacontainer/objects4/:/data/objects:rw
     environment:
       AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
 
   datacontainer5:
     image: dynostore/datacontainer:v1
@@ -222,8 +225,77 @@ services:
       - ./datacontainer/objects5/:/data/objects:rw
     environment:
       AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
 
+  datacontainer6:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20006:5000"
+    volumes:
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects6/:/data/objects:rw
+    environment:
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+    
+  datacontainer7:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20007:5000"
+    volumes:
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects7/:/data/objects:rw
+    environment:
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
 
+  datacontainer8:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20008:5000"
+    volumes:
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects8/:/data/objects:rw
+    environment:
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+
+  datacontainer9:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20009:5000"
+    volumes:
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects9/:/data/objects:rw
+    environment:
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+
+  datacontainer10:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20010:5000"
+    volumes:
+      - ./datacontainer/code/:/app
+      - ./datacontainer/objects10/:/data/objects:rw
+    environment:
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
          
 volumes:  
   psql-data-vc:

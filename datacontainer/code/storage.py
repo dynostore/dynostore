@@ -21,6 +21,7 @@ class FileSystemStorage(StorageManager):
         self.basepath = basepath
         
     def delete(self, key: str) -> bool:
+        
         filepath = os.path.join(self.basepath, key)
         try:
             os.remove(filepath)
@@ -34,6 +35,7 @@ class FileSystemStorage(StorageManager):
             return f.read()
     
     def write(self, key: str, data: bytes) -> bool:
+        print(self.basepath, key,  flush=True)
         filepath = os.path.join(self.basepath, key)
         try:
             with open(filepath, 'wb') as f:

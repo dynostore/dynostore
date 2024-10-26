@@ -12,6 +12,7 @@ use App\Models\Server;
 use App\Models\FilesInServer;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 use Http;
 
@@ -48,7 +49,7 @@ class FileController extends Controller
         $file->chunks = $request->input('chunks');
         $file->required_chunks = $request->has('required_chunks') ? $request->input('required_chunks') : 1;
         $file->disperse = $file->chunks == 1 ? "SINGLE" : "IDA";
-        
+
         $file->owner = $tokenuser;
 
         # Get servers and their utilization
@@ -63,7 +64,7 @@ class FileController extends Controller
                 #File::where('server_id', $node["id"])->sum('size');
             }
 
-            if (empty ($nodes)) {
+            if (empty($nodes)) {
                 return response()->json([
                     "message" => "Not enough servers to store the file"
                 ], 409);
@@ -123,6 +124,104 @@ class FileController extends Controller
 
     }
 
+    public function pushDREX(Request $request, $tokenuser, $tokencatalog, $keyfile)
+    {
+        $url = "http://" . AUTH . '/auth/v1/user?tokenuser=' . $tokenuser;
+
+        $response = Http::get($url);
+
+        if ($response->status() == 404) {
+            return response()->json([
+                "message" => "Unauthorized"
+            ], 401);
+        }
+
+        $keys = array();
+        $file = new File;
+        $file->name = $request->input('name');
+        $file->keyfile = $keyfile;
+        $file->size = $request->input('size');
+        $file->hash = $request->input('hash');
+        $file->is_encrypted = $request->input('is_encrypted');
+        $file->chunks = $request->input('chunks');
+        $file->required_chunks = $request->has('required_chunks') ? $request->input('required_chunks') : 1;
+        $file->disperse = $file->chunks == 1 ? "SINGLE" : "IDA";
+
+        $file->owner = $tokenuser;
+
+        # Regist object metadata
+        try {
+            $file = File::updateOrCreate(
+                ["keyfile" => $keyfile],
+                [
+                    "name" => $file->name,
+                    "size" => $file->size,
+                    "hash" => $file->hash,
+                    "is_encrypted" => $file->is_encrypted,
+                    "chunks" => $file->chunks,
+                    "required_chunks" => $file->required_chunks,
+                    "owner" => $file->owner,
+                    "disperse" => $file->disperse
+                ]
+            );
+        } catch (QueryException $e) {
+            return response()->json([
+                "message" => $e->getMessage()
+            ], 400);
+        }
+
+        try {
+            $nodes = Server::where('up', True)->get()->toArray();
+
+            if (empty($nodes)) {
+                return response()->json([
+                    "message" => "Not enough servers to store the file"
+                ], 409);
+            }
+
+        } catch (QueryException $e) {
+            return response()->json([
+                "message" => $e->getMessage()
+            ], 409);
+        }
+
+        $result = array();
+        $chunk_size = $file->size / $file->chunks;
+        for ($i = 1; $i <= $file->chunks; $i++) {
+            $chunk_name = "c" . $i . "_" . $file->name;
+            $chunk = new Chunk;
+            $chunk->name = $chunk_name;
+            $chunk->size = $chunk_size;
+            $chunk->keyfile = $file->keyfile;
+            $chunk->keychunk = Str::uuid();
+            $chunk->server_id = $nodes[$i - 1]["id"];
+            $chunk->save();
+            $id = $chunk->id;
+            $result[]["route"] = $nodes[$i - 1]["url"] . '/objects/' . $file->keyfile . $chunk->keychunk . '/' . $tokenuser;
+        }
+
+        if ($file->is_encrypted == 1) {
+            $servers_abekeys = Server::emplazador(1, $nodes, NODES_REQUIRED_PUSH);
+            $temp = $servers_abekeys[0]["url"] . '/abekeys/' . $file->keyfile . '/' . $tokenuser;
+            $down_link = $servers_abekeys[0]["url"] . '/abekeys/' . $file->keyfile . '/' . $tokenuser;
+
+            $abekey = new Abekey;
+            $abekey->keyfile = $file->keyfile;
+            $abekey->url = $down_link;
+            $abekey->save();
+
+
+            $keys[] = array("route" => $temp);
+        }
+
+        return response()->json([
+            "message" => "Object record created or updated",
+            "file" => $file,
+            "nodes" => $result,
+            "keys" => $keys,
+        ], 201);
+    }
+
     public function pull(Request $request, $tokenuser, $keyfile)
     {
 
@@ -139,7 +238,7 @@ class FileController extends Controller
 
         if (!$file) {
             return response()->json([
-                "message" =>  "Object " . $keyfile . "  not found or not authorized for " . $tokenuser
+                "message" => "Object " . $keyfile . "  not found or not authorized for " . $tokenuser
             ], 404);
         }
 
@@ -160,7 +259,7 @@ class FileController extends Controller
 
 
     public function exists(Request $request, $tokenuser, $keyfile)
-    {   
+    {
         try {
             $file = File::where('keyfile', $keyfile)
                 ->where('removed', 0)

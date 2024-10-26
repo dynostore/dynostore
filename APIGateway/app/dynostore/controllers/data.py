@@ -65,36 +65,20 @@ class DataController():
         
         routes = data['data']['routes']
 #<<<<<<< HEAD
-#        results = []
-#        num_processes = multiprocessing.cpu_count()
-#        objectRes = None
-        
-        #with multiprocessing.Pool(num_processes) as pool:
-        #    results = pool.map(DataController.downloadChunk, routes)
-        
-#        for route in routes#:
-#            url_node = route['route']
-#            url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
-#            response = requests.get(url_node)
-#            if response.status_code != 200:
-#                return response.json(), response.status_code
-#            results.append(response.content)
-#=======
-        #results = []
+        results = []
+        num_processes = multiprocessing.cpu_count()
         objectRes = None
         
-        with multiprocessing.Pool(len(routes)) as pool:
-            results = pool.map(DataController::downloadChunk, routes)
+        with multiprocessing.Pool(num_processes) as pool:
+            results = pool.map(DataController.downloadChunk, routes)
         
-        #for route in routes:
-        #    url_node = route['route']
-        #    url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
-        #    response = requests.get(url_node)
-        #    if response.status_code != 200:
-        #        return response.json(), response.status_code
-        #    results.append(response.content)
-#>>>>>>> 1b2662c8e154bfba89e84e9f6531a4307ce239be
-            
+        # for route in routes:
+        #     url_node = route['route']
+        #     url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
+        #     response = requests.get(url_node)
+        #     if response.status_code != 200:
+        #         return response.json(), response.status_code
+        #     results.append(response.content)
         
         if len(results) > 1:
             results = [pickle.loads(fragment) for fragment in results]
@@ -115,6 +99,67 @@ class DataController():
         if response.status_code != 201:
             return response.json(), response.status_code
 
+    def pushDataDRex(request,
+        metadaService: str,
+        pubsubService: str,
+        catalog: str,
+        tokenUser: str,
+        keyObject: str
+    ):
+        start_time = time.perf_counter_ns()
+        files = request.files
+        request_json = json.loads(files['json'].read().decode('utf-8'))
+        request_bytes = files['data'].read()
+        n = request_json['chunks']
+        k = request_json['required_chunks']
+        nodes = request_json['nodes']
+        print(n,k,flush=True)
+        data = ida.split_bytes(request_bytes, n, k)
+        data = [pickle.dumps(fragment) for fragment in data]
+        
+        results, status_code = CatalogController.createOrGetCatalog(
+            request, pubsubService, catalog, tokenUser)
+
+        if status_code == 201 or status_code == 302:
+
+            tokenCatalog = results['data']['tokencatalog']
+
+            url_to_push_metadata = f'http://{metadaService}/api/storage/drex/{tokenUser}/{tokenCatalog}/{keyObject}'
+            response = requests.put(url_to_push_metadata, json=request_json)
+            print("holas",response.text, flush=True)
+            
+            if response.status_code != 201:
+                return response.json(), response.status_code
+            
+            nodes = response.json()['nodes']
+            
+            upload_start = time.perf_counter_ns()
+            #with multiprocessing.Pool(num_processes) as pool:
+            #    results = pool.map(DataController.uploadChunk, nodes_datas)
+
+            
+            for i,node in enumerate(nodes):
+                print(node, flush=True)
+                url_node = node['route']
+                url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
+                response = requests.put(url_node, data=data[i])
+                print(response.text, flush=True)
+                if response.status_code != 201:
+                    return response.json(), response.status_code
+            
+            upload_end = time.perf_counter_ns()
+            
+            results, code = CatalogController.registFileInCatalog(
+                pubsubService, tokenCatalog, tokenUser, keyObject)
+
+            if code != 201:
+                return results, code
+            end_time = time.perf_counter_ns()
+            return {"total_time": (end_time - start_time), "time_upload": (upload_end - upload_start)}, response.status_code
+
+        else:
+            return results, status_code
+        
     def pushData(
         request,
         metadaService: str,
@@ -126,12 +171,12 @@ class DataController():
     ):
         start_time = time.perf_counter_ns()
         files = request.files
-        print(files, flush=True)
+        #print(files, flush=True)
         request_json = json.loads(files['json'].read().decode('utf-8'))
         request_bytes = files['data'].read()
-        print(request_json, flush=True)
+        #print(request_json, flush=True)
         data = []
-        if request_json['resiliency'] >= 1:
+        if request_json['resiliency'] == 1:
             #n = request_json['chunks']
             # = request_json['required_chunks']
             
