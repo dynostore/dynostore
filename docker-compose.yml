@@ -115,67 +115,6 @@ services:
       APIGATEWAY_HOST: apigateway
     restart: always
 
-  ######################
-  # Storage services
-  ######################
-
-  datacontainer1:
-    image: dynostore/datacontainer:v1
-    ports:
-        - "20001:5000"
-    volumes:
-      - ./datacontainer/objects1/:/data/objects:rw
-    environment:
-      APIGATEWAY_HOST: apigateway
-      AUTH_HOST: auth
-    
-  datacontainer2:
-    image: dynostore/datacontainer:v1
-    build: 
-      dockerfile: Dockerfile
-    ports:
-        - "20002:5000"
-    volumes:
-      - ./datacontainer/objects2/:/data/objects:rw
-    environment:
-      AUTH_HOST: auth
-
-  datacontainer3:
-    image: dynostore/datacontainer:v1
-    build: 
-      context: ./datacontainer
-      dockerfile: Dockerfile
-    ports:
-        - "20003:5000"
-    volumes:
-      - ./datacontainer/objects3/:/data/objects:rw
-    environment:
-      AUTH_HOST: auth
-
-  datacontainer4:
-    image: dynostore/datacontainer:v1
-    build: 
-      context: ./datacontainer
-      dockerfile: Dockerfile
-    ports:
-        - "20004:5000"
-    volumes:
-      - ./datacontainer/objects4/:/data/objects:rw
-    environment:
-      AUTH_HOST: auth
-
-  datacontainer5:
-    image: dynostore/datacontainer:v1
-    build: 
-      context: ./datacontainer
-      dockerfile: Dockerfile
-    ports:
-        - "20005:5000"
-    volumes:
-      - ./datacontainer/objects5/:/data/objects:rw
-    environment:
-      AUTH_HOST: auth
-
 
          
 volumes:  

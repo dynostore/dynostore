@@ -64,7 +64,6 @@ class DataController():
         data = response.json()
         
         routes = data['data']['routes']
-#<<<<<<< HEAD
         results = []
         num_processes = multiprocessing.cpu_count()
         objectRes = None
@@ -114,8 +113,12 @@ class DataController():
         k = request_json['required_chunks']
         nodes = request_json['nodes']
         print(n,k,flush=True)
+        
+        start_chunking = time.perf_counter_ns()
         data = ida.split_bytes(request_bytes, n, k)
         data = [pickle.dumps(fragment) for fragment in data]
+        
+        end_chunking = time.perf_counter_ns()
         
         results, status_code = CatalogController.createOrGetCatalog(
             request, pubsubService, catalog, tokenUser)
@@ -155,7 +158,7 @@ class DataController():
             if code != 201:
                 return results, code
             end_time = time.perf_counter_ns()
-            return {"total_time": (end_time - start_time), "time_upload": (upload_end - upload_start)}, response.status_code
+            return {"total_time": (end_time - start_time), "time_upload": (upload_end - upload_start), "chunking_time": (end_chunking-start_chunking)}, response.status_code
 
         else:
             return results, status_code
