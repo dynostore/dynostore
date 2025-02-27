@@ -8,8 +8,8 @@ from dynostore.controllers.catalogs import CatalogController
 #from drex.utils.reliability import ida
 from dynostore.datamanagement.reliability import ida
 from drex.utils.load_data import RealRecords
-
 from drex.schedulers.algorithm4 import *
+
 import numpy as np
 import sys
 
@@ -134,7 +134,11 @@ class DataController():
             if response.status_code != 201:
                 return response.json(), response.status_code
             
+            print(nodes, flush=True)
+            
             nodes = response.json()['nodes']
+            
+            print(nodes, flush=True)
             
             upload_start = time.perf_counter_ns()
             #with multiprocessing.Pool(num_processes) as pool:
@@ -148,6 +152,7 @@ class DataController():
                 response = requests.put(url_node, data=data[i])
                 print(response.text, flush=True)
                 if response.status_code != 201:
+                    print()
                     return response.json(), response.status_code
             
             upload_end = time.perf_counter_ns()

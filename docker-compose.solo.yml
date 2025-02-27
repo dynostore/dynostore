@@ -1,0 +1,172 @@
+version: "3.8"
+services:
+  metadata:
+    build:
+      args:
+        user: metadata
+        uid: 1000
+      context: ./metadata
+      dockerfile: Dockerfile
+    image: dynostore/metadata:v2
+    restart: always
+    working_dir: /var/www/
+    volumes:
+      - ./metadata/app:/var/www
+    environment:
+      - APIGATEWAY_HOST=apigateway
+      - AUTH_HOST=auth
+
+  apigateway:
+    image: dynostore/apigateway:python
+    build: 
+      context: ./APIGateway
+      dockerfile: Dockerfile
+    ports:
+        - "8095:80"
+    volumes:
+      - ./APIGateway/app/:/app
+    environment:
+      AUTH_HOST: auth
+      PUB_SUB_HOST: pub_sub
+      METADATA_HOST: metadata_server
+    restart: always
+  
+
+  metadata_server:
+    image: nginx:1.17-alpine
+    restart: unless-stopped
+    ports:
+      - 8005:80
+    volumes:
+      - ./metadata/app:/var/www
+      - ./metadata/default.conf:/etc/nginx/conf.d/default.conf
+
+  db_metadata:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'metadata-api'
+      # So you don't have to use root, but you can if you like
+      MYSQL_USER: 'metadata'
+      # You can use whatever password you like
+      MYSQL_PASSWORD: 'metadata2023'
+      # Password for root access
+      MYSQL_ROOT_PASSWORD: 'metadata2023'
+    expose:
+      # Opens port 3306 on the container
+      - '3306'
+      # Where our data will be persisted
+    volumes:
+      - my-db:/var/lib/mysql
+
+  auth: #Authentication service
+    image: dynostore/auth:v1
+    build: 
+      context: ./auth
+      dockerfile: Dockerfile
+    depends_on:
+      - db_auth
+    expose:
+      - "80"
+    ports:
+      - "8090:80"
+    environment:
+      DB_USER: muyalmanager
+      DB_PASSWORD: niCi7unamltrubrlJusp
+      DB_NAME: auth
+      DB_HOST: db_auth
+      DB_PORT: 5432
+      APIGATEWAY_HOST: apigateway
+    volumes:
+      - ./auth/auth/:/var/www/html/
+    restart: always
+
+  db_auth: #Authentication database
+    image: dynostore/databaseauth:v1
+    build: 
+      context: ./auth
+      dockerfile: DB.Dockerfile
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: muyalmanager
+      POSTGRES_PASSWORD: niCi7unamltrubrlJusp
+      ADMIN_USER: dynoadmin
+      ADMIN_PASSWORD: XeN5raSsdJkcOMN
+      ADMIN_EMAIL: admin@admin
+    volumes:
+      - psql-auth:/var/lib/postgresql/data
+      - ./auth/schema-sql/auth.sql:/docker-entrypoint-initdb.d/auth.sql
+      - ./auth/configure:/configure
+    restart: always
+  frontend: #Interfez gráfica
+    image: dynostore/frontend:v1
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8091:80"
+    depends_on:
+      - auth
+      - pub_sub
+      - apigateway
+    environment:
+      APIGATEWAY_HOST: apigateway
+    volumes:
+      - ./frontend/frontend/:/var/www/html/
+    restart: always
+
+  db_pub_sub: #Base de datos del servicio de publicación y suscripción
+    image: dynostore/dbpubsub:v1
+    build: 
+      context: ./pub_sub
+      dockerfile: DB.Dockerfile
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: pub_sub
+      POSTGRES_USER: muyalmanager
+      POSTGRES_PASSWORD: sicuhowradRaxi5R2ke6
+    volumes:
+      - psql-pubsub:/var/lib/postgresql/data
+      - ./pub_sub/schema-sql/pub_sub.sql:/docker-entrypoint-initdb.d/pub_sub.sql
+    restart: always
+
+  pub_sub: #Servicio de pub/sub 
+    image: dynostore/pubsub:v1
+    build: 
+      context: ./pub_sub
+      dockerfile: Dockerfile
+    depends_on:
+      - db_pub_sub
+    expose:
+      - "80"
+    environment:
+      DB_USER: muyalmanager
+      DB_PASSWORD: sicuhowradRaxi5R2ke6
+      DB_NAME: pub_sub
+      DB_HOST: db_pub_sub
+      DB_PORT: 5432
+      APIGATEWAY_HOST: apigateway
+    volumes:
+      - ./pub_sub/pub_sub/:/var/www/html/
+    restart: always
+
+volumes:  
+  psql-data-vc:
+    driver: local
+  sqlt-data-cm:
+    driver: local
+  psql-pubsub:
+    driver: local
+  psql-data-vc-api:
+    driver: local
+  mysql-db-data:
+    driver: local
+  psql-auth:
+    driver: local
+  psql-vc:
+    driver: local
+  my-db:
+    driver: local

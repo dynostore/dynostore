@@ -6,6 +6,8 @@ WORKDIR /install
 
 RUN pip install -r requirements.txt
 
+RUN pip install git+https://github.com/dynostore/D-rex.git
+
 ADD app /app
 WORKDIR /app
 
