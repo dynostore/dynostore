@@ -8,8 +8,8 @@ from dynostore.controllers.catalogs import CatalogController
 #from drex.utils.reliability import ida
 from dynostore.datamanagement.reliability import ida
 from drex.utils.load_data import RealRecords
-
 from drex.schedulers.algorithm4 import *
+
 import numpy as np
 import sys
 
@@ -64,7 +64,6 @@ class DataController():
         data = response.json()
         
         routes = data['data']['routes']
-#<<<<<<< HEAD
         results = []
         num_processes = multiprocessing.cpu_count()
         objectRes = None
@@ -114,8 +113,12 @@ class DataController():
         k = request_json['required_chunks']
         nodes = request_json['nodes']
         print(n,k,flush=True)
+        
+        start_chunking = time.perf_counter_ns()
         data = ida.split_bytes(request_bytes, n, k)
         data = [pickle.dumps(fragment) for fragment in data]
+        
+        end_chunking = time.perf_counter_ns()
         
         results, status_code = CatalogController.createOrGetCatalog(
             request, pubsubService, catalog, tokenUser)
@@ -131,7 +134,11 @@ class DataController():
             if response.status_code != 201:
                 return response.json(), response.status_code
             
+            print(nodes, flush=True)
+            
             nodes = response.json()['nodes']
+            
+            print(nodes, flush=True)
             
             upload_start = time.perf_counter_ns()
             #with multiprocessing.Pool(num_processes) as pool:
@@ -145,6 +152,7 @@ class DataController():
                 response = requests.put(url_node, data=data[i])
                 print(response.text, flush=True)
                 if response.status_code != 201:
+                    print()
                     return response.json(), response.status_code
             
             upload_end = time.perf_counter_ns()
@@ -155,7 +163,7 @@ class DataController():
             if code != 201:
                 return results, code
             end_time = time.perf_counter_ns()
-            return {"total_time": (end_time - start_time), "time_upload": (upload_end - upload_start)}, response.status_code
+            return {"total_time": (end_time - start_time), "time_upload": (upload_end - upload_start), "chunking_time": (end_chunking-start_chunking)}, response.status_code
 
         else:
             return results, status_code

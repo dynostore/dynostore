@@ -146,8 +146,10 @@ class FileController extends Controller
         $file->chunks = $request->input('chunks');
         $file->required_chunks = $request->has('required_chunks') ? $request->input('required_chunks') : 1;
         $file->disperse = $file->chunks == 1 ? "SINGLE" : "IDA";
-
         $file->owner = $tokenuser;
+
+        $desired_nodes = $request->input("nodes");
+        
 
         # Regist object metadata
         try {
@@ -184,6 +186,7 @@ class FileController extends Controller
                 "message" => $e->getMessage()
             ], 409);
         }
+        
 
         $result = array();
         $chunk_size = $file->size / $file->chunks;
@@ -194,10 +197,10 @@ class FileController extends Controller
             $chunk->size = $chunk_size;
             $chunk->keyfile = $file->keyfile;
             $chunk->keychunk = Str::uuid();
-            $chunk->server_id = $nodes[$i - 1]["id"];
+            $chunk->server_id = $nodes[$desired_nodes[$i - 1]]["id"];
             $chunk->save();
             $id = $chunk->id;
-            $result[]["route"] = $nodes[$i - 1]["url"] . '/objects/' . $file->keyfile . $chunk->keychunk . '/' . $tokenuser;
+            $result[]["route"] = $nodes[$desired_nodes[$i - 1]]["url"] . '/objects/' . $file->keyfile . $chunk->keychunk . '/' . $tokenuser;
         }
 
         if ($file->is_encrypted == 1) {
