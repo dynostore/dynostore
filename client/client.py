@@ -10,8 +10,9 @@ import hashlib
 import io
 import json
 
+
 class Client(object):
-    
+
     def __init__(self, metadata_server):
         self.metadata_server = metadata_server
 
@@ -25,21 +26,21 @@ class Client(object):
         response = delete_(
             f'http://{self.metadata_server}/storage/{token_user}/{key}'
         )
-        
+
         if not response.ok:
             raise requests.exceptions.RequestException(
                 f'Server returned HTTP error code {response.status_code}. '
                 f'{response.text}',
                 response=response,
             )
-            
+
     def exists(
         self,
         key: str,
         token_user: str = None,
         session: requests.Session = None
     ) -> bool:
-        
+
         get_ = requests.get if session is None else session.get
         response = get_(
             f'http://{self.metadata_server}/storage/{token_user}/{key}/exists'
@@ -53,7 +54,6 @@ class Client(object):
 
         return response.json()["exists"]
 
-
     def get(
         self,
         key: str,
@@ -61,29 +61,28 @@ class Client(object):
         session: requests.Session = None
     ) -> bytes:
         get = requests.get if session is None else session.get
-        #print(key, type(key), sep=" - ")
+        # print(key, type(key), sep=" - ")
         response = get(
             f'http://{self.metadata_server}/storage/{token_user}/{key}'
         )
-        
+
         print(response.text)
-        
+
         if response.status_code == 404:
             raise requests.exceptions.RequestException(
-                    f'DynoStore returned HTTP error code {response.status_code}. '
-                    f'{response.text}',
-                    response=response,
-                )
+                f'DynoStore returned HTTP error code {response.status_code}. '
+                f'{response.text}',
+                response=response,
+            )
 
         if response.status_code == 200:
-            
+
             data = bytearray()
             for chunk in response.iter_content(chunk_size=None):
                 data += chunk
-            #print(data)
+            # print(data)
             return bytes(data)
-    
-            
+
     def put_drex(
         self,
         data: bytes,
@@ -94,9 +93,9 @@ class Client(object):
         session: requests.Session = None,
         is_encrypted: bool = False,
         max_workers: int = 1,
-        resiliency: int = 0, 
-        number_of_chunks=1, 
-        required_chunks=1, 
+        resiliency: int = 0,
+        number_of_chunks=1,
+        required_chunks=1,
         nodes=None
     ) -> None:
         start_time = time.perf_counter_ns()
@@ -105,16 +104,17 @@ class Client(object):
 
         put = requests.put if session is None else session.put
         fake_file = io.BytesIO(data)
-        
+
         payload = {"name": name, "size": len(data), "hash": data_hash, "key": key,
-                        "is_encrypted": int(is_encrypted), "resiliency": resiliency, 
-                        "chunks": number_of_chunks, "required_chunks": required_chunks, 
-                        "nodes": nodes}
-        files   = [
-                    ('json', ('payload.json', json.dumps(payload), 'application/json')),
-                    ('data', ('data.bin', fake_file, 'application/octet-stream'))
-                ]
-        response       = requests.put(f'http://{self.metadata_server}/drex/storage/{token_user}/{catalog}/{key}', files=files)
+                   "is_encrypted": int(is_encrypted), "resiliency": resiliency,
+                   "chunks": number_of_chunks, "required_chunks": required_chunks,
+                   "nodes": nodes}
+        files = [
+            ('json', ('payload.json', json.dumps(payload), 'application/json')),
+            ('data', ('data.bin', fake_file, 'application/octet-stream'))
+        ]
+        response = requests.put(
+            f'http://{self.metadata_server}/drex/storage/{token_user}/{catalog}/{key}', files=files)
 
         if response.status_code == 201:
             res = response.json()
@@ -125,10 +125,12 @@ class Client(object):
                 response=response,
             )
         end = time.perf_counter_ns()
-        return {"total_time": (end - start_time) / 1e6, "metadata_time": res["total_time"] / 1e6, "upload_time": res["time_upload"] / 1e6, "chunking_time": res["chunking_time"] / 1e6}
+        return {
+            "total_time": (end - start_time) / 1e6, 
+            "metadata_time": res["total_time"] / 1e6, 
+            "upload_time": res["time_upload"] / 1e6, 
+            "chunking_time": res["chunking_time"] / 1e6}
 
-                
-            
     def put(
         self,
         data: bytes,
@@ -139,9 +141,9 @@ class Client(object):
         session: requests.Session = None,
         is_encrypted: bool = False,
         max_workers: int = 1,
-        resiliency: int = 0, 
-        number_of_chunks=1, 
-        required_chunks=1, 
+        resiliency: int = 0,
+        number_of_chunks=1,
+        required_chunks=1,
         nodes=None
     ) -> None:
         start_time = time.perf_counter_ns()
@@ -150,16 +152,17 @@ class Client(object):
 
         put = requests.put if session is None else session.put
         fake_file = io.BytesIO(data)
-        
+
         payload = {"name": name, "size": len(data), "hash": data_hash, "key": key,
-                        "is_encrypted": int(is_encrypted), "resiliency": resiliency, 
-                        "chunks": number_of_chunks, "required_chunks": required_chunks, 
-                        "nodes": nodes}
-        files   = [
-                    ('json', ('payload.json', json.dumps(payload), 'application/json')),
-                    ('data', ('data.bin', fake_file, 'application/octet-stream'))
-                ]
-        response       = requests.put(f'http://{self.metadata_server}/storage/{token_user}/{catalog}/{key}', files=files)
+                   "is_encrypted": int(is_encrypted), "resiliency": resiliency,
+                   "chunks": number_of_chunks, "required_chunks": required_chunks,
+                   "nodes": nodes}
+        files = [
+            ('json', ('payload.json', json.dumps(payload), 'application/json')),
+            ('data', ('data.bin', fake_file, 'application/octet-stream'))
+        ]
+        response = requests.put(
+            f'http://{self.metadata_server}/storage/{token_user}/{catalog}/{key}', files=files)
 
         if response.status_code == 201:
             res = response.json()
@@ -172,129 +175,4 @@ class Client(object):
         end = time.perf_counter_ns()
         return {"total_time": (end - start_time) / 1e6, "metadata_time": res["total_time"] / 1e6, "upload_time": res["time_upload"] / 1e6}
 
-    def put_chunks(
-        self,
-        key: str,
-        data_hash: str,
-        name: str,
-        data: bytes,
-        token_user: str,
-        catalog: str,
-        session: requests.Session = None,
-        is_encrypted: bool = False,
-        chunks: int = 1,
-        required_chunks: int = 1,
-        max_workers: int = 1, 
-        disperse: str = "IDA"
-    ) -> None:
-        
-        start = time.perf_counter_ns()
-        response = regist_on_metadata(
-            name, data, token_user, data_hash, key, catalog, 
-            session, is_encrypted, chunks, required_chunks, disperse
-        )
-        
-        if response.status_code == 201:
-            servers_urls = response.json()["nodes"]
-            end = time.perf_counter_ns()
-            metadata_time = (end - start)  / 1e6
-            
-            
-            start = time.perf_counter_ns()
-            data_chunks = split_bytes(data, chunks, required_chunks)
-            end = time.perf_counter_ns()
-            dispersal_time = (end - start)  / 1e6
-                
-            start = time.perf_counter_ns()
-            if max_workers > 1:
-                #with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                with ProcessPoolExecutor(max_workers=max_workers) as executor:
-                    results = [
-                        executor.submit(
-                            upload_to_storage_node,
-                            servers_urls[i]["route"],
-                            pickle.dumps(data_chunks[i]),
-                            token_user,
-                            session
-                        )
-                        for i in range(chunks)
-                    ]
-                    
-                    for result in results:
-                        if not result.result():
-                            raise requests.exceptions.RequestException(
-                                f'Failed to upload chunk to storage node {result.result()}.'
-                            )
-            else:
-                results = [
-                    upload_to_storage_node(
-                        servers_urls[i]["route"], 
-                        pickle.dumps(data_chunks[i]), 
-                        token_user, session) 
-                    for i in range(chunks)]
-        else:
-            raise requests.exceptions.RequestException(
-                f'Metadata server returned HTTP error code {response.status_code}. '
-                f'{response.text}',
-                response=response,
-            )
-            
-        end = time.perf_counter_ns()
-        
-        data_upload_time = (end - start)  / 1e6 
-        
-        return {"metadata_time": metadata_time, "dispersal_time": dispersal_time, "data_upload_time": data_upload_time}
-
-    def regist_on_metadata(
-        self,
-        name: str,
-        data: bytes,
-        token_user: str,
-        data_hash: str,
-        key: str,
-        catalog: str,
-        session: requests.Session = None,
-        is_encrypted: bool = False,
-        chunks: int = 1,
-        required_chunks: int = 1,
-        disperse: str = "SINGLE"
-    ) -> requests.Response:
-        
-        post = requests.post if session is None else session.post
-        response = post(
-            f'http://{self.metadata_server}/api/files/push',
-            params={"name": name, "size": len(data), "hash": data_hash, "key": key,
-                    "tokenuser": token_user, "catalog": catalog,
-                    "is_encrypted": int(is_encrypted), "chunks": chunks,
-                    "required_chunks": required_chunks, "disperse": disperse}
-        )
-        return response
-        
-
-    def upload_to_storage_node(
-        self,
-        url: str,
-        data: bytes,
-        token_user: str,
-        session: requests.Session = None,
-    ) -> bool:
-        
-        post = requests.post if session is None else session.post
-        response = post(
-            f'http://{url}',
-            headers={'Content-Type': 'application/octet-stream'},
-            params={'tokenuser': token_user},
-            data=data,
-            stream=True,
-        )
-        
-        
-        if not response.ok:
-            raise requests.exceptions.RequestException(
-                f'Storage node {url} returned HTTP error code {response.status_code}. '
-                f'{response.text}',
-                response=response,
-            )
-            
-        else:
-            return True
+    

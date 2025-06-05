@@ -71,13 +71,6 @@ class DataController():
         with multiprocessing.Pool(num_processes) as pool:
             results = pool.map(DataController.downloadChunk, routes)
         
-        # for route in routes:
-        #     url_node = route['route']
-        #     url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
-        #     response = requests.get(url_node)
-        #     if response.status_code != 200:
-        #         return response.json(), response.status_code
-        #     results.append(response.content)
         
         if len(results) > 1:
             results = [pickle.loads(fragment) for fragment in results]
@@ -134,12 +127,7 @@ class DataController():
             if response.status_code != 201:
                 return response.json(), response.status_code
             
-            print(nodes, flush=True)
-            
             nodes = response.json()['nodes']
-            
-            print(nodes, flush=True)
-            
             upload_start = time.perf_counter_ns()
             #with multiprocessing.Pool(num_processes) as pool:
             #    results = pool.map(DataController.uploadChunk, nodes_datas)
