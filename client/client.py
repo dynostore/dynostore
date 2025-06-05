@@ -9,12 +9,13 @@ import time
 import hashlib
 import io
 import json
-
+from nfrs.compress import ObjectCompressor
 
 class Client(object):
 
     def __init__(self, metadata_server):
         self.metadata_server = metadata_server
+        self.object_compressor = ObjectCompressor()
 
     def evict(
         self,
@@ -83,54 +84,6 @@ class Client(object):
             # print(data)
             return bytes(data)
 
-    def put_drex(
-        self,
-        data: bytes,
-        token_user: str,
-        catalog: str,
-        key: str = str(uuid.uuid4()),
-        name: str = None,
-        session: requests.Session = None,
-        is_encrypted: bool = False,
-        max_workers: int = 1,
-        resiliency: int = 0,
-        number_of_chunks=1,
-        required_chunks=1,
-        nodes=None
-    ) -> None:
-        start_time = time.perf_counter_ns()
-        data_hash = hashlib.sha3_256(data).hexdigest()
-        name = data_hash if name is None else name
-
-        put = requests.put if session is None else session.put
-        fake_file = io.BytesIO(data)
-
-        payload = {"name": name, "size": len(data), "hash": data_hash, "key": key,
-                   "is_encrypted": int(is_encrypted), "resiliency": resiliency,
-                   "chunks": number_of_chunks, "required_chunks": required_chunks,
-                   "nodes": nodes}
-        files = [
-            ('json', ('payload.json', json.dumps(payload), 'application/json')),
-            ('data', ('data.bin', fake_file, 'application/octet-stream'))
-        ]
-        response = requests.put(
-            f'http://{self.metadata_server}/drex/storage/{token_user}/{catalog}/{key}', files=files)
-
-        if response.status_code == 201:
-            res = response.json()
-        else:
-            raise requests.exceptions.RequestException(
-                f'Metadata server returned HTTP error code {response.status_code}. '
-                f'{response.text}',
-                response=response,
-            )
-        end = time.perf_counter_ns()
-        return {
-            "total_time": (end - start_time) / 1e6, 
-            "metadata_time": res["total_time"] / 1e6, 
-            "upload_time": res["time_upload"] / 1e6, 
-            "chunking_time": res["chunking_time"] / 1e6}
-
     def put(
         self,
         data: bytes,
@@ -151,9 +104,10 @@ class Client(object):
         name = data_hash if name is None else name
 
         put = requests.put if session is None else session.put
-        fake_file = io.BytesIO(data)
+        data_compressed = self.object_compressor.compress(data)
+        fake_file = io.BytesIO(data_compressed)
 
-        payload = {"name": name, "size": len(data), "hash": data_hash, "key": key,
+        payload = {"name": name, "size": len(data_compressed), "hash": data_hash, "key": key,
                    "is_encrypted": int(is_encrypted), "resiliency": resiliency,
                    "chunks": number_of_chunks, "required_chunks": required_chunks,
                    "nodes": nodes}
@@ -173,6 +127,10 @@ class Client(object):
                 response=response,
             )
         end = time.perf_counter_ns()
-        return {"total_time": (end - start_time) / 1e6, "metadata_time": res["total_time"] / 1e6, "upload_time": res["time_upload"] / 1e6}
+        return {
+            "total_time": (end - start_time) / 1e6, 
+            "metadata_time": res["total_time"] / 1e6, 
+            "upload_time": res["time_upload"] / 1e6
+        }
 
     
