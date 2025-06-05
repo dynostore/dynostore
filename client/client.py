@@ -74,12 +74,8 @@ class Client(object):
                     f'{response.text}',
                     response=response,
                 )
-        #print(response.status_code, flush=True)
-        #print(response.text)
-        
+
         if response.status_code == 200:
-            #print(response.json(), flush=True)
-            #databytes = bytes(response.json()["data"][0], 'utf-8')
             
             data = bytearray()
             for chunk in response.iter_content(chunk_size=None):
@@ -87,34 +83,6 @@ class Client(object):
             #print(data)
             return bytes(data)
     
-            #data = response.json["data"]
-            #return data    
-        
-        #     route = response.json()["data"]["routes"][0]["route"]
-        #     get_ = requests.get if session is None else session.get
-        #     response = get_(
-        #         f'http://{route}',
-        #         stream=True,
-        #     )
-            
-            
-
-            # Status code 404 is only returned if there's no data associated with the
-            # provided key.
-            # if response.status_code == 404:
-            #     return None
-
-            # if not response.ok:
-            #     raise requests.exceptions.RequestException(
-            #         f'Endpoint returned HTTP error code {response.status_code}. '
-            #         f'{response.text}',
-            #         response=response,
-            #     )
-
-            # data = bytearray()
-            # for chunk in response.iter_content(chunk_size=None):
-            #     data += chunk
-            # return bytes(data)
             
     def put_drex(
         self,
