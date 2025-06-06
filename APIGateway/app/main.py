@@ -1,5 +1,12 @@
 import os
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template, redirect, render_template_string
+from flask_login import LoginManager, login_user, logout_user, current_user, login_required
+from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy import Column, Integer, String, create_engine
+from authlib.integrations.flask_oauth2 import AuthorizationServer
+from authlib.oauth2.rfc6749 import grants
+from authlib.oauth2.rfc7636 import CodeChallenge
+
 import requests
 from werkzeug.utils import secure_filename
 
@@ -8,17 +15,87 @@ from dynostore.decorators.token import validateToken, validateAdminToken
 from dynostore.controllers.catalogs import CatalogController
 from dynostore.controllers.data import DataController
 from dynostore.controllers.datacontainer import DataContainerController
+from dynostore.db import Session, Base, engine
+from dynostore.models.user import User
+from dynostore.models.oauth2 import OAuth2Client, OAuth2AuthorizationCode, OAuth2Token
 
-from drex.utils.prediction import Predictor
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
+app.secret_key = 'supersecret'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
+db = Session()
+
+Base.metadata.create_all(engine)
+
+# === Flask-Login setup ===
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
 
 AUTH_HOST = os.getenv('AUTH_HOST')
 PUB_SUB_HOST = os.getenv('PUB_SUB_HOST')
 METADATA_HOST = os.getenv('METADATA_HOST')
 
-predictor = Predictor()  # Update for different file sizes
+@login_manager.user_loader
+def load_user(user_id):
+    return db.query(User).get(int(user_id))
+
+def save_token(token_data, request):
+    token = OAuth2Token(
+        client_id=request.client.client_id,
+        user_id=request.user.id,
+        **token_data
+    )
+    db.add(token)
+    db.commit()
+
+# === Authlib OAuth2 setup ===
+def query_client(client_id):
+    return db.query(OAuth2Client).filter_by(client_id=client_id).first()
+
+def save_token(token_data, request):
+    token = OAuth2Token(
+        client_id=request.client.client_id,
+        user_id=request.user.id,
+        **token_data
+    )
+    db.add(token)
+    db.commit()
+
+authorization = AuthorizationServer(
+    app,
+    query_client=query_client,
+    save_token=save_token,
+)
+
+class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
+    def save_authorization_code(self, code, request):
+        auth_code = OAuth2AuthorizationCode(
+            code=code,
+            client_id=request.client.client_id,
+            redirect_uri=request.redirect_uri,
+            scope=request.scope,
+            user_id=request.user.id,
+            code_challenge=request.data.get("code_challenge"),
+            code_challenge_method=request.data.get("code_challenge_method"),
+        )
+        db.add(auth_code)
+        db.commit()
+        return code
+
+    def query_authorization_code(self, code, client):
+        return db.query(OAuth2AuthorizationCode).filter_by(code=code, client_id=client.client_id).first()
+
+    def delete_authorization_code(self, code):
+        db.delete(code)
+        db.commit()
+
+    def authenticate_user(self, code):
+        return db.query(User).get(code.user_id)
+
+authorization.register_grant(AuthorizationCodeGrant, [CodeChallenge(required=True)])
 
 # Authentication service routes
 """
@@ -67,6 +144,83 @@ Route to get the metadata of an user
 @app.route('/auth/user/<tokenuser>', methods=["GET"])
 def validateUsertToken(tokenuser):
     return AuthController.validateUsertToken(tokenuser, AUTH_HOST)
+
+
+# === Routes ===
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        return render_template("login.html")
+
+    payload = {
+        "username": request.form["username"],
+        "password": request.form["password"]
+    }
+    resp = requests.post("http://auth-microservice:5001/auth/v1/users/login/", json=payload)
+
+    if resp.status_code == 200:
+        user_data = resp.json()
+        user = db.query(User).filter_by(username=user_data["username"]).first()
+        if not user:
+            user = User(username=user_data["username"])
+            db.add(user)
+            db.commit()
+
+        login_user(user)
+        return redirect(request.args.get("next") or "/")
+
+    return "Invalid credentials", 401
+
+@app.route("/logout")
+def logout():
+    logout_user()
+    return redirect("/")
+
+@app.route("/oauth/authorize", methods=["GET", "POST"])
+@login_required
+def authorize():
+    if request.method == "GET":
+        try:
+            grant = authorization.validate_consent_request(end_user=current_user)
+        except Exception as e:
+            return str(e), 400
+        return render_template_string("""
+            <form method="post">
+                <p>Authorize {{client.client_id}}?</p>
+                <button name="confirm" value="yes">Yes</button>
+                <button name="confirm" value="no">No</button>
+            </form>
+        """, client=grant.client)
+
+    if request.form.get("confirm") == "yes":
+        return authorization.create_authorization_response(grant_user=current_user)
+    return authorization.create_authorization_response(grant_user=None)
+
+@app.route("/oauth/token", methods=["POST"])
+def issue_token():
+    return authorization.create_token_response()
+
+@app.route("/")
+def index():
+    return f"Hello, {current_user.username}" if current_user.is_authenticated else "Welcome, please /login"
+
+# === Seed user and client ===
+def create_default_user_and_client():
+    if not db.query(User).filter_by(username="alice").first():
+        db.add(User(username="alice"))
+    if not db.query(OAuth2Client).filter_by(client_id="my-cli").first():
+        client = OAuth2Client(
+            client_id="my-cli",
+            client_secret="dummy-secret",
+            redirect_uris="http://localhost:8080/callback",
+            grant_types="authorization_code",
+            response_types="code",
+            scope="profile",
+            token_endpoint_auth_method="none",
+        )
+        db.add(client)
+    db.commit()
+
 
 
 # PubSub service routes
@@ -192,4 +346,5 @@ def clean(admintoken):
     return jsonify(results.json()), results.status_code
 
 if __name__ == '__main__':
+    create_default_user_and_client()
     app.run(debug=True, host='0.0.0.0', port=80)

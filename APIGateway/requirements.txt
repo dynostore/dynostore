@@ -1,4 +1,7 @@
 flask
+flask-login
+Authlib
 requests
 numpy
 drex==0.0.246
+sqlalchemy
