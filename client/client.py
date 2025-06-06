@@ -1,21 +1,18 @@
 import requests
 import uuid
-from utils.data import chunk_bytes
-from constants import MAX_CHUNK_LENGTH
-from reliability.ida import split_bytes
-from concurrent.futures import ProcessPoolExecutor
-import pickle
 import time
 import hashlib
 import io
 import json
 from nfrs.compress import ObjectCompressor
+from nfrs.cipher import EncryptedObjectStore
 
 class Client(object):
 
     def __init__(self, metadata_server):
         self.metadata_server = metadata_server
         self.object_compressor = ObjectCompressor()
+        self.object_encrypter = EncryptedObjectStore()
 
     def evict(
         self,
@@ -67,8 +64,6 @@ class Client(object):
             f'http://{self.metadata_server}/storage/{token_user}/{key}'
         )
 
-        print(response.text)
-
         if response.status_code == 404:
             raise requests.exceptions.RequestException(
                 f'DynoStore returned HTTP error code {response.status_code}. '
@@ -93,10 +88,7 @@ class Client(object):
         name: str = None,
         session: requests.Session = None,
         is_encrypted: bool = False,
-        max_workers: int = 1,
         resiliency: int = 0,
-        number_of_chunks=1,
-        required_chunks=1,
         nodes=None
     ) -> None:
         start_time = time.perf_counter_ns()
@@ -105,17 +97,19 @@ class Client(object):
 
         put = requests.put if session is None else session.put
         data_compressed = self.object_compressor.compress(data)
-        fake_file = io.BytesIO(data_compressed)
+        data_encrypted = self.object_encrypter.encrypt(data_compressed) if is_encrypted else data_compressed
+
+
+        fake_file = io.BytesIO(data_encrypted)
 
         payload = {"name": name, "size": len(data_compressed), "hash": data_hash, "key": key,
                    "is_encrypted": int(is_encrypted), "resiliency": resiliency,
-                   "chunks": number_of_chunks, "required_chunks": required_chunks,
                    "nodes": nodes}
         files = [
             ('json', ('payload.json', json.dumps(payload), 'application/json')),
             ('data', ('data.bin', fake_file, 'application/octet-stream'))
         ]
-        response = requests.put(
+        response = put(
             f'http://{self.metadata_server}/storage/{token_user}/{catalog}/{key}', files=files)
 
         if response.status_code == 201:
