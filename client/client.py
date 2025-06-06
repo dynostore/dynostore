@@ -5,14 +5,14 @@ import hashlib
 import io
 import json
 from nfrs.compress import ObjectCompressor
-from nfrs.cipher import EncryptedObjectStore
+from nfrs.cipher import SecureObjectStore
 
 class Client(object):
 
     def __init__(self, metadata_server):
         self.metadata_server = metadata_server
         self.object_compressor = ObjectCompressor()
-        self.object_encrypter = EncryptedObjectStore()
+        self.object_encrypter = SecureObjectStore("aaaa")
 
     def evict(
         self,
@@ -98,6 +98,7 @@ class Client(object):
         put = requests.put if session is None else session.put
         data_compressed = self.object_compressor.compress(data)
         data_encrypted = self.object_encrypter.encrypt(data_compressed) if is_encrypted else data_compressed
+        print(data_encrypted)
 
 
         fake_file = io.BytesIO(data_encrypted)

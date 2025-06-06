@@ -17,7 +17,6 @@ class SecureObjectStore:
     def _derive_key(self, password: str) -> bytes:
         """Derives a 256-bit AES key from the password using PBKDF2-HMAC-SHA256."""
         self.key_dir.mkdir(parents=True, exist_ok=True)
-
         if not self.salt_file.exists():
             salt = os.urandom(16)
             with open(self.salt_file, "wb") as f:
