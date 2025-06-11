@@ -51,7 +51,7 @@ include_once("includes/config.php");
         <!-- form -->
         <form class="form-signin" id="login_form">
             <div class="form-group">
-                <input type="text" name="user" class="form-control" placeholder="Nombre de usuario o correo" required autofocus>
+                <input type="text" name="username" class="form-control" placeholder="Nombre de usuario o correo" required autofocus>
             </div>
             <div class="form-group">
                 <input type="password" name="password" class="form-control" placeholder="Contraseña" required>

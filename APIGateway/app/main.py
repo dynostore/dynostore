@@ -156,21 +156,19 @@ def validateUsertToken(tokenuser):
 
 
 # === Routes ===
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/auth/user/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
         return render_template("login.html")
 
     payload = {
-        "user": request.form["username"],
-        "password": request.form["password"]
+        "user": request.json["username"],
+        "password": request.json["password"]
     }
     resp = requests.post(f"http://{AUTH_HOST}/auth/v1/users/login/", json=payload)
 
-    print(resp.text, flush=True)
-
     if resp.status_code == 200:
-        user_data = resp.json()
+        user_data = resp.json()["data"]
         user = db.query(User).filter_by(username=user_data["username"]).first()
         if not user:
             user = User(username=user_data["username"])
@@ -178,7 +176,7 @@ def login():
             db.commit()
 
         login_user(user)
-        return redirect(request.args.get("next") or "/")
+        return resp.json(), 200
 
     return "Invalid credentials", 401
 
