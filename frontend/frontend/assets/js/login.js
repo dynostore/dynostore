@@ -98,6 +98,8 @@ $(function () {
             })
             .done(function (res) {
                 $('#load').html('');
+                console.log("aaa");
+                console.log(res);
                 if (res) {
                     console.log(res);
                     //swal('Ok', 'User created, please check your email.', 'success')
@@ -112,6 +114,7 @@ $(function () {
                 }
             })
             .fail(function (res) {
+                console.log(res);
                 toastr.error('Error');
             });
     });

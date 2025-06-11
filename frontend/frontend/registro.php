@@ -11,7 +11,7 @@ if (!empty($_SESSION['tokenuser'])) {
 }
 
 include_once(CLASES . "/Curl.php");
-$url = $_ENV['APIGATEWAY_HOST'] . '/auth/v1/view/hierarchy/all';
+$url = $_ENV['APIGATEWAY_HOST'] . '/auth/organization';
 
 $curl = new Curl();
 $response = $curl->get($url);
@@ -176,7 +176,6 @@ if ($response['code'] == 200 && isset($response['data']['data'])) {
                     })
                     .fail(function(res) {
                         console.log(res);
-                        //$('#load').html('');
                         toastr.error('Error');
                     });
             } else {

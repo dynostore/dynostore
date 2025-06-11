@@ -122,6 +122,15 @@ def getOrganization(name, acronym):
 
 
 """
+Route to get the list of organizations
+"""
+@app.route('/auth/organization', methods=["GET"])
+def getOrganizations():
+    url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy/all/'
+    results = requests.get(url_service)
+    return jsonify(results.json()), results.status_code
+
+"""
 Route to regist an user
 """
 @app.route('/auth/user', methods=["POST"])
@@ -153,10 +162,12 @@ def login():
         return render_template("login.html")
 
     payload = {
-        "username": request.form["username"],
+        "user": request.form["username"],
         "password": request.form["password"]
     }
-    resp = requests.post("http://auth-microservice:5001/auth/v1/users/login/", json=payload)
+    resp = requests.post(f"http://{AUTH_HOST}/auth/v1/users/login/", json=payload)
+
+    print(resp.text, flush=True)
 
     if resp.status_code == 200:
         user_data = resp.json()

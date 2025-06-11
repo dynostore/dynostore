@@ -6,13 +6,12 @@ include_once(SESIONES);
 
 Sessions::startSession("muyalpainal");
 
-
-$url = $_ENV['APIGATEWAY_HOST'] . '/auth/v1/hierarchy/create';
+$url = "http://" . $_ENV['APIGATEWAY_HOST'] . '/auth/organization/' . $_POST['fullname'] . "/" . $_POST['acronym'];
 
 $_POST['fathers_token'] = '/';
 
 $curl = new Curl();
-$response = $curl->post($url, $_POST);
+$response = $curl->put($url, $_POST);
 
 
 if (isset($response['data']['message'])) {

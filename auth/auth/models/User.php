@@ -295,7 +295,7 @@ class User extends REST
             $error = array("message" => "Something went wrong.", "codigo" => 1);
             $this->response($this->json($error), 406);
         }
-        
+
         $db = new DbHandler();
         $result = $db->isAdmin($token);
         if ($result) {
@@ -352,8 +352,8 @@ class User extends REST
 
                 // insert query 5b06d434c733c
                 $res = $db->insertUser($keyuser, $tokenuser, $username, $email, $passHash, $tokenorg, $access_token, $apikey, $isactive, $isadmin, $code);
-                $msg['msg'] = 'User created';
-
+                $msg['message'] = 'User created';
+                $msg['codigo'] = 0;
                 $msg['access_token'] = $access_token;
                 $msg['apikey'] = $apikey;
                 $msg['user_token'] = $tokenuser;

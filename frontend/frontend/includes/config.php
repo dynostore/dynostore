@@ -21,13 +21,13 @@ $config = array(
     )
 );
 
-define("PROJECT_HOME", "/painal");
+define("PROJECT_HOME", "./");
 
 
 #Microservices
 define('AUTH_HOST', 'auth');
 define('METADATA', 'metadata');
-define('APIGATEWAY_HOST', 'localhost:20500');
+define('APIGATEWAY_HOST', 'localhost:8095');
 /*
     Creating constants for heavily used paths makes things a lot easier.
     ex. require_once(LIBRARY_PATH . "Paginator.php")
