@@ -1,79 +1,52 @@
-import os
-import webbrowser
-import http.server
-import threading
 import requests
-import base64
-import hashlib
-import uuid
+import os
+import json
 
-AUTH_URL = "http://localhost:8095/oauth/authorize"
-TOKEN_URL = "http://localhost:8095/oauth/token"
-CLIENT_ID = "my-cli"
-REDIRECT_URI = "http://localhost:20090/callback"
+AUTH_URL = "http://localhost:8095"
+TOKEN_FILE = os.path.expanduser("~/.mycli/token.json")
 
-def generate_pkce():
-    code_verifier = base64.urlsafe_b64encode(os.urandom(40)).rstrip(b'=').decode('utf-8')
-    code_challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(code_verifier.encode()).digest()
-    ).rstrip(b'=').decode('utf-8')
-    return code_verifier, code_challenge
+def request_user_code():
+    resp = requests.post(f"{AUTH_URL}/device/code")
+    resp.raise_for_status()
+    data = resp.json()
+    print(f"\nPlease go to {data['verification_uri']}")
+    print(f"And enter this code to verify the client: {data['user_code']}\n")
+    return data['user_code']
 
-class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        global authorization_code
-        if '/callback' in self.path:
-            from urllib.parse import urlparse, parse_qs
-            query = parse_qs(urlparse(self.path).query)
-            authorization_code = query.get('code', [None])[0]
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"Authentication successful. You may close this window.")
-        else:
-            self.send_error(404)
+def input_user_token():
+    return input("Paste the token shown in your browser here: ").strip()
 
-def start_local_server():
-    server = http.server.HTTPServer(('localhost', 20090), OAuthCallbackHandler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+def validate_token(user_token):
+    resp = requests.post(f"{AUTH_URL}/token/validate", json={"token": user_token})
+    print(resp)
+    if resp.status_code == 200:
+        token_data = resp.json()
+        print("✅ Access token received!")
+        return token_data
+    else:
+        print("❌ Invalid token:", resp.json())
+        return None
 
-def authenticate():
-    global authorization_code
-    authorization_code = None
-    code_verifier, code_challenge = generate_pkce()
+def save_token(token_data):
+    os.makedirs(os.path.dirname(TOKEN_FILE), exist_ok=True)
+    with open(TOKEN_FILE, "w") as f:
+        json.dump(token_data, f)
+    print(f"🔐 Token saved at {TOKEN_FILE}")
 
-    # Start local server
-    start_local_server()
+def main():
+    # Check if token already exists
+    if os.path.exists(TOKEN_FILE):
+        print(f"Token already exists at {TOKEN_FILE}. Skipping authentication.")
+        return
+    
+    print("Starting authentication process...")
+    user_code = request_user_code()
+    print("Waiting for you to complete the verification in the browser...")
 
-    # Open browser for login
-    auth_url = f"{AUTH_URL}?response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&code_challenge={code_challenge}&code_challenge_method=S256"
-    print("Opening browser for authentication...")
-    webbrowser.open(auth_url)
-
-    # Wait until code is received
-    import time
-    while authorization_code is None:
-        time.sleep(1)
-
-    # Exchange code for tokens
-    data = {
-        "grant_type": "authorization_code",
-        "code": authorization_code,
-        "redirect_uri": REDIRECT_URI,
-        "client_id": CLIENT_ID,
-        "code_verifier": code_verifier,
-    }
-    response = requests.post(TOKEN_URL, data=data)
-    tokens = response.json()
-
-    # Store tokens securely
-    os.makedirs(os.path.expanduser("~/.mycli/"), exist_ok=True)
-    with open(os.path.expanduser("~/.mycli/tokens.json"), "w") as f:
-        import json
-        json.dump(tokens, f)
-
-    print("Access token saved.")
-    return tokens
+    user_token = input_user_token()
+    token_data = validate_token(user_token)
+    if token_data:
+        save_token(token_data)
 
 if __name__ == "__main__":
-    authenticate()
-    print("Authentication complete. You can now use the CLI.")
+    main()

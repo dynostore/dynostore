@@ -22,6 +22,8 @@ class OAuth2Client(Base, OAuth2ClientMixin):
 class OAuth2AuthorizationCode(Base, OAuth2AuthorizationCodeMixin):
     __tablename__ = 'oauth2_code'
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False)
+
 
 class OAuth2Token(Base, OAuth2TokenMixin):
     __tablename__ = 'oauth2_token'

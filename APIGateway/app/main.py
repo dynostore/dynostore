@@ -1,15 +1,11 @@
 import os
-from flask import Flask, jsonify, request, render_template, redirect, render_template_string
-from flask_login import LoginManager, login_user, logout_user, current_user, login_required
-from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy import Column, Integer, String, create_engine
-from authlib.integrations.flask_oauth2 import AuthorizationServer
-from authlib.oauth2.rfc6749 import grants
-from authlib.oauth2.rfc7636 import CodeChallenge
+from flask import Flask, jsonify, request, render_template, redirect, flash, url_for, render_template_string, session
+from flask_login import LoginManager, login_user, logout_user, UserMixin
 
 import requests
-from werkzeug.utils import secure_filename
-
+from uuid import uuid4
+import time
+import json
 from dynostore.controllers.auth import AuthController
 from dynostore.decorators.token import validateToken, validateAdminToken
 from dynostore.controllers.catalogs import CatalogController
@@ -17,8 +13,6 @@ from dynostore.controllers.data import DataController
 from dynostore.controllers.datacontainer import DataContainerController
 from dynostore.db import Session, Base, engine
 from dynostore.models.user import User
-from dynostore.models.oauth2 import OAuth2Client, OAuth2AuthorizationCode, OAuth2Token
-
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
@@ -33,74 +27,113 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
-
 AUTH_HOST = os.getenv('AUTH_HOST')
 PUB_SUB_HOST = os.getenv('PUB_SUB_HOST')
 METADATA_HOST = os.getenv('METADATA_HOST')
+
 
 @login_manager.user_loader
 def load_user(user_id):
     return db.query(User).get(int(user_id))
 
-def save_token(token_data, request):
-    token = OAuth2Token(
-        client_id=request.client.client_id,
-        user_id=request.user.id,
-        **token_data
-    )
-    db.add(token)
-    db.commit()
+# Endpoint and client authentication
 
-# === Authlib OAuth2 setup ===
-def query_client(client_id):
-    return db.query(OAuth2Client).filter_by(client_id=client_id).first()
 
-def save_token(token_data, request):
-    token = OAuth2Token(
-        client_id=request.client.client_id,
-        user_id=request.user.id,
-        **token_data
-    )
-    db.add(token)
-    db.commit()
+# In-memory DB (for demo only)
+device_codes = {}
+user_sessions = {}
+tokens = {}
 
-authorization = AuthorizationServer(
-    app,
-    query_client=query_client,
-    save_token=save_token,
-)
+# === Endpoint: CLI gets a device code ===
 
-class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
-    def save_authorization_code(self, code, request):
-        auth_code = OAuth2AuthorizationCode(
-            code=code,
-            client_id=request.client.client_id,
-            redirect_uri=request.redirect_uri,
-            scope=request.scope,
-            user_id=request.user.id,
-            code_challenge=request.data.get("code_challenge"),
-            code_challenge_method=request.data.get("code_challenge_method"),
-        )
-        db.add(auth_code)
-        db.commit()
-        return code
 
-    def query_authorization_code(self, code, client):
-        return db.query(OAuth2AuthorizationCode).filter_by(code=code, client_id=client.client_id).first()
+@app.route("/device/code", methods=["POST"])
+def device_code():
+    device_code = str(uuid4())
+    user_code = str(uuid4())[:8].upper()
+    now = int(time.time())
 
-    def delete_authorization_code(self, code):
-        db.delete(code)
-        db.commit()
+    device_codes[device_code] = {
+        "user_code": user_code,
+        "expires_in": 600,
+        "interval": 5,
+        "verified": False,
+        "created_at": now,
+        "username": None
+    }
+    return jsonify({
+        "device_code": device_code,
+        "user_code": user_code,
+        "verification_uri": "http://localhost:8095/device",
+        "expires_in": 600,
+        "interval": 5
+    })
 
-    def authenticate_user(self, code):
-        return db.query(User).get(code.user_id)
+# === Endpoint: User visits this to enter the code ===
 
-authorization.register_grant(AuthorizationCodeGrant, [CodeChallenge(required=True)])
+
+@app.route("/device", methods=["GET", "POST"])
+def device_entry():
+    if request.method == "GET":
+        return render_template_string('''
+            <h2>Device Login</h2>
+            <form method="post">
+                <label>Enter your code:</label><br>
+                <input name="user_code" required><br>
+                <input type="submit" value="Continue">
+            </form>
+        ''')
+
+    user_code = request.form.get("user_code")
+    for dev_code, info in device_codes.items():
+        if info["user_code"] == user_code:
+            session["device_code"] = dev_code
+            return redirect("/auth/user/login?type=device")
+
+    return "Invalid code", 400
+
+# === Endpoint: CLI polls for token ===
+
+
+@app.route("/token/validate", methods=["POST"])
+def verify_token():
+    data = request.json or request.form
+    token = data.get("token")
+
+    if token in tokens:
+        # Get the rest of tokens from the in-memory DB
+        userdata = tokens[token]
+        user = db.query(User).filter_by(username=userdata["username"]).first()
+
+        if not user:
+            return jsonify({"error": "user_not_found"}), 404
+
+        return jsonify(user.to_dict()), 200
+
+    return jsonify({"error": "invalid_token"}), 401
+
+# === Protected API example ===
+
+
+@app.route("/me")
+def profile():
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return jsonify({"error": "missing_token"}), 401
+
+    token = auth.split()[1]
+    if token not in tokens:
+        return jsonify({"error": "invalid_token"}), 401
+
+    return jsonify({"username": tokens[token]["username"]})
+
 
 # Authentication service routes
 """
 Route to create an organization
 """
+
+
 @app.route('/auth/organization/<name>/<acronym>', methods=["PUT"])
 def createOrganization(name, acronym):
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy'
@@ -113,6 +146,8 @@ def createOrganization(name, acronym):
 """
 Route to get the metadata of an organization
 """
+
+
 @app.route('/auth/organization/<name>/<acronym>', methods=["GET"])
 def getOrganization(name, acronym):
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy'
@@ -124,15 +159,20 @@ def getOrganization(name, acronym):
 """
 Route to get the list of organizations
 """
+
+
 @app.route('/auth/organization', methods=["GET"])
 def getOrganizations():
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy/all/'
     results = requests.get(url_service)
     return jsonify(results.json()), results.status_code
 
+
 """
 Route to regist an user
 """
+
+
 @app.route('/auth/user', methods=["POST"])
 def createUser():
     url_service = f'http://{AUTH_HOST}/auth/v1/users/create'
@@ -150,6 +190,8 @@ def createUser():
 """
 Route to get the metadata of an user
 """
+
+
 @app.route('/auth/user/<tokenuser>', methods=["GET"])
 def validateUsertToken(tokenuser):
     return AuthController.validateUsertToken(tokenuser, AUTH_HOST)
@@ -158,78 +200,62 @@ def validateUsertToken(tokenuser):
 # === Routes ===
 @app.route("/auth/user/login", methods=["GET", "POST"])
 def login():
+
     if request.method == "GET":
         return render_template("login.html")
 
+    inputs = None
+    if request.is_json:
+        inputs = request.json
+    else:
+        inputs = request.form
+
+    if not "username" in inputs or not "password" in inputs:
+        return "Missing username or password", 400
+
     payload = {
-        "user": request.json["username"],
-        "password": request.json["password"]
+        "user": inputs["username"],
+        "password": inputs["password"]
     }
-    resp = requests.post(f"http://{AUTH_HOST}/auth/v1/users/login/", json=payload)
+    resp = requests.post(
+        f"http://{AUTH_HOST}/auth/v1/users/login/", json=payload)
 
     if resp.status_code == 200:
         user_data = resp.json()["data"]
-        user = db.query(User).filter_by(username=user_data["username"]).first()
-        if not user:
-            user = User(username=user_data["username"])
-            db.add(user)
-            db.commit()
 
-        login_user(user)
+        if "type" in request.args and request.args["type"] == "device":
+            dev_code = session.get("device_code")
+            if dev_code and dev_code in device_codes:
+
+                # Store user credentials
+                user = db.query(User).filter_by(
+                    username=user_data["username"]).first()
+                if not user:
+                    user = User(
+                        username=user_data["username"],
+                        access_token=user_data["access_token"],
+                        user_token=user_data["tokenuser"],
+                        api_key=user_data["apikey"]
+                    )
+                    db.add(user)
+                    db.commit()
+
+                device_codes[dev_code]["verified"] = True
+                device_codes[dev_code]["username"] = inputs["username"]
+                access_token = str(uuid4())
+                tokens[access_token] = {"username": inputs["username"]}
+                return f"Login successful. You may close this tab. Please return to your CLI and paste this token: \n\n {access_token}", 200
+
+        # If no next parameter, just return the user data)
         return resp.json(), 200
 
     return "Invalid credentials", 401
+
 
 @app.route("/logout")
 def logout():
     logout_user()
     return redirect("/")
-
-@app.route("/oauth/authorize", methods=["GET", "POST"])
-@login_required
-def authorize():
-    if request.method == "GET":
-        try:
-            grant = authorization.validate_consent_request(end_user=current_user)
-        except Exception as e:
-            return str(e), 400
-        return render_template_string("""
-            <form method="post">
-                <p>Authorize {{client.client_id}}?</p>
-                <button name="confirm" value="yes">Yes</button>
-                <button name="confirm" value="no">No</button>
-            </form>
-        """, client=grant.client)
-
-    if request.form.get("confirm") == "yes":
-        return authorization.create_authorization_response(grant_user=current_user)
-    return authorization.create_authorization_response(grant_user=None)
-
-@app.route("/oauth/token", methods=["POST"])
-def issue_token():
-    return authorization.create_token_response()
-
-@app.route("/")
-def index():
-    return f"Hello, {current_user.username}" if current_user.is_authenticated else "Welcome, please /login"
-
-# === Seed user and client ===
-def create_default_user_and_client():
-    if not db.query(User).filter_by(username="alice").first():
-        db.add(User(username="alice"))
-    if not db.query(OAuth2Client).filter_by(client_id="my-cli").first():
-        client = OAuth2Client(
-            client_id="my-cli",
-            client_secret="dummy-secret",
-            redirect_uris="http://localhost:8080/callback",
-            grant_types="authorization_code",
-            response_types="code",
-            scope="profile",
-            token_endpoint_auth_method="none",
-        )
-        db.add(client)
-    db.commit()
-
 
 
 # PubSub service routes
@@ -237,6 +263,8 @@ def create_default_user_and_client():
 """
 Route to create a catalog
 """
+
+
 @app.route('/pubsub/<tokenuser>/catalog/<catalogname>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 def createCatalog(tokenuser, catalogname):
@@ -258,78 +286,74 @@ def createCatalog(tokenuser, catalogname):
     )
 
 
-"""
-Route to get the metadata of a catalog
-"""
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 def getCatalog(tokenuser, catalog):
+    """
+    Route to get the metadata of a catalog
+    """
     return CatalogController.getCatalog(PUB_SUB_HOST, catalog, tokenuser)
 
-
-"""
-Route to delete a catalog
-"""
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)
 def deleteCatalog(tokenuser, catalog):
+    """
+    Route to delete a catalog
+    """
     url_service = f'http://{PUB_SUB_HOST}/catalog/{catalog}/?tokenuser={tokenuser}'
     results = requests.delete(url_service)
     return jsonify(results.json()), results.status_code
 
-
-"""
-List files in catalog
-"""
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>/list', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 def listCatalogFiles(tokenuser, catalog):
+    """
+    List files in catalog
+    """
     return CatalogController.listFilesInCatalog(PUB_SUB_HOST, catalog, tokenuser)
 
+
 # Storage service routes
-"""
-Route to download an object
-"""
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 def downloadObject(tokenuser, keyobject):
+    """
+    Route to download an object
+    """
     return DataController.pullData(request, tokenuser, keyobject, METADATA_HOST, PUB_SUB_HOST)
 
 # DREX Experiments (temporal functions)
 @app.route('/storage/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 def uploadObjectDREX(tokenuser, catalog, keyobject):
-    #print("NEW", tokenuser, catalog, keyobject, flush=True)
+    # print("NEW", tokenuser, catalog, keyobject, flush=True)
     return DataController.pushDataDRex(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
 
-
-"""
-Route to check if an object exists
-"""
 @app.route('/storage/<tokenuser>/<keyobject>/exists', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 def existsObject(tokenuser, keyobject):
+    """
+    Route to check if an object exists
+    """
     return DataController.existsObject(request, tokenuser, keyobject, METADATA_HOST)
 
-
-"""
-Route to delete an object
-"""
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)
 def deleteObject(tokenuser, keyobject):
+    """
+    Route to delete an object
+    """
     return DataController.deleteObject(request, tokenuser, keyobject, METADATA_HOST)
 
 # Data containers management
-
-
-"""
-Route to regist a data container on the metadata service
-"""
 @app.route('/datacontainer/<admintoken>', methods=["POST"])
 @validateAdminToken(auth_host=AUTH_HOST)
 def registDataContainer(admintoken):
+    """
+    Route to regist a data container on the metadata service
+    """
     return DataContainerController.regist(request, admintoken, METADATA_HOST)
+
 
 @app.route('/datacontainer/<admintoken>/all', methods=["DELETE"])
 @validateAdminToken(auth_host=AUTH_HOST)
@@ -337,14 +361,17 @@ def deleteAllDCs(admintoken):
     return DataContainerController.delete_all(request, admintoken, METADATA_HOST)
 
 # Development
+
+
 @app.route("/statistic/<admintoken>", methods=["GET"])
 @validateAdminToken(auth_host=AUTH_HOST)
 def statistics(admintoken):
     url_service = f"http://{METADATA_HOST}/api/servers/{admintoken}"
-    #print(url_service, flush=True)
+    # print(url_service, flush=True)
     results = requests.get(url_service)
-    #print(results.text, flush=True)
+    # print(results.text, flush=True)
     return jsonify(results.json()), results.status_code
+
 
 @app.route("/clean/<admintoken>", methods=["GET"])
 @validateAdminToken(auth_host=AUTH_HOST)
@@ -354,6 +381,6 @@ def clean(admintoken):
     print(results.text, flush=True)
     return jsonify(results.json()), results.status_code
 
+
 if __name__ == '__main__':
-    create_default_user_and_client()
     app.run(debug=True, host='0.0.0.0', port=80)
