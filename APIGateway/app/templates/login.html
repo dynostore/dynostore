@@ -34,7 +34,8 @@
             </div>
           {% endif %}
         {% endwith %}
-        <form method="post">
+        <form method="post" action="/auth/user/login?type=device">
+            <input type="hidden" name="device_code" value="{{ device_code }}">
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
                 <input name="username" id="username" type="text" class="form-control" required>

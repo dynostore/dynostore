@@ -12,6 +12,7 @@ from dynostore.decorators.token import validateToken, validateAdminToken
 from dynostore.controllers.catalogs import CatalogController
 from dynostore.controllers.data import DataController
 from dynostore.controllers.datacontainer import DataContainerController
+from dynostore.models.access_token import AccessToken
 
 from dynostore.models.user import User
 from dynostore.models.device_code import DeviceCode
@@ -70,14 +71,7 @@ def device_code():
 @app.route("/device", methods=["GET", "POST"])
 def device_entry():
     if request.method == "GET":
-        return render_template_string('''
-            <h2>Device Verification</h2>
-            <form method="post">
-                <label>Enter your code:</label><br>
-                <input name="user_code" required><br>
-                <input type="submit" value="Continue">
-            </form>
-        ''')
+        return render_template("device_verification.html")
 
     user_code = request.form.get("user_code")
     device = DeviceCode.query.filter_by(user_code=user_code).first()
@@ -87,17 +81,8 @@ def device_entry():
     
     session["device_code"] = device.device_code
 
-    return render_template_string('''
-        <h2>Login</h2>
-        <form method="post" action="/auth/user/login?type=device">
-            <input type="hidden" name="device_code" value="{{ device_code }}">
-            <label>Username:</label><br>
-            <input name="username" required><br>
-            <label>Password:</label><br>
-            <input type="password" name="password" required><br><br>
-            <input type="submit" value="Login">
-        </form>
-    ''', device_code=device.device_code)
+    return render_template("login.html", device_code=device.device_code)
+
 
 # === Endpoint: CLI polls for token ===
 
@@ -153,9 +138,6 @@ def createOrganization(name, acronym):
     return jsonify(results.json()), results.status_code
 
 
-
-
-
 @app.route('/auth/organization/<name>/<acronym>', methods=["GET"])
 def getOrganization(name, acronym):
     """
@@ -167,25 +149,20 @@ def getOrganization(name, acronym):
     return jsonify(results.json()), results.status_code
 
 
-"""
-Route to get the list of organizations
-"""
-
-
 @app.route('/auth/organization', methods=["GET"])
 def getOrganizations():
+    """
+    Route to get the list of organizations
+    """
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy/all/'
     results = requests.get(url_service)
     return jsonify(results.json()), results.status_code
 
-
-"""
-Route to regist an user
-"""
-
-
 @app.route('/auth/user', methods=["POST"])
 def createUser():
+    """
+    Route to regist an user
+    """
     url_service = f'http://{AUTH_HOST}/auth/v1/users/create'
     data = {
         "option": "NEW",
@@ -198,13 +175,11 @@ def createUser():
     return jsonify(results.json()), results.status_code
 
 
-"""
-Route to get the metadata of an user
-"""
-
-
 @app.route('/auth/user/<tokenuser>', methods=["GET"])
 def validateUsertToken(tokenuser):
+    """
+    Route to get the metadata of an user
+    """
     return AuthController.validateUsertToken(tokenuser, AUTH_HOST)
 
 
@@ -260,11 +235,7 @@ def login():
                 db.session.add(user)
                 db.session.commit()
 
-            return render_template_string(f'''
-                <h2>Authentication Successful</h2>
-                <p>Copy and paste this token into your CLI application:</p>
-                <code>{token}</code>
-            ''')
+            return render_template("auth_success.html",token=token)
 
         # If no next parameter, just return the user data)
         return resp.json(), 200
@@ -280,14 +251,12 @@ def logout():
 
 # PubSub service routes
 
-"""
-Route to create a catalog
-"""
-
-
 @app.route('/pubsub/<tokenuser>/catalog/<catalogname>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 def createCatalog(tokenuser, catalogname):
+    """
+    Route to create a catalog
+    """
     # validate inputs
     dispersemode = request.json['dispersemode'] if 'dispersemode' in request.json else "SINGLE"
     encryption = request.json['encryption'] if 'encryption' in request.json else 0
