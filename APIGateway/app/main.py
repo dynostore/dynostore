@@ -14,6 +14,7 @@ from dynostore.controllers.data import DataController
 from dynostore.controllers.datacontainer import DataContainerController
 
 from dynostore.models.user import User
+from dynostore.models.device_code import DeviceCode
 from dynostore.db import db
 
 app = Flask(__name__)
@@ -31,22 +32,6 @@ login_manager.login_view = "login"
 AUTH_HOST = os.getenv('AUTH_HOST')
 PUB_SUB_HOST = os.getenv('PUB_SUB_HOST')
 METADATA_HOST = os.getenv('METADATA_HOST')
-
-
-class DeviceCode(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    device_code = db.Column(db.String(64), unique=True, nullable=False)
-    user_code = db.Column(db.String(16), unique=True, nullable=False)
-    expires_at = db.Column(db.Integer, nullable=False)
-    interval = db.Column(db.Integer, default=5)
-    verified = db.Column(db.Boolean, default=False)
-    username = db.Column(db.String(64), nullable=True)
-
-class AccessToken(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    token = db.Column(db.String(128), unique=True, nullable=False)
-    username = db.Column(db.String(64), nullable=False)
-    expires_at = db.Column(db.Integer, nullable=False)
 
 
 @login_manager.user_loader
