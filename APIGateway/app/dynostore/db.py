@@ -1,7 +1,3 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.ext.declarative import declarative_base
+from flask_sqlalchemy import SQLAlchemy
 
-engine = create_engine("sqlite:///db.sqlite")
-Session = scoped_session(sessionmaker(bind=engine))
-Base = declarative_base()
+db = SQLAlchemy()

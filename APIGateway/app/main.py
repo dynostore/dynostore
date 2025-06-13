@@ -2,6 +2,7 @@ import os
 from flask import Flask, jsonify, request, render_template, redirect, flash, url_for, render_template_string, session
 from flask_login import LoginManager, login_user, logout_user, UserMixin
 
+
 import requests
 from uuid import uuid4
 import time
@@ -11,16 +12,16 @@ from dynostore.decorators.token import validateToken, validateAdminToken
 from dynostore.controllers.catalogs import CatalogController
 from dynostore.controllers.data import DataController
 from dynostore.controllers.datacontainer import DataContainerController
-from dynostore.db import Session, Base, engine
+
 from dynostore.models.user import User
+from dynostore.db import db
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
 app.secret_key = 'supersecret'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
-db = Session()
 
-Base.metadata.create_all(engine)
+db.init_app(app)
 
 # === Flask-Login setup ===
 login_manager = LoginManager()
@@ -32,35 +33,44 @@ PUB_SUB_HOST = os.getenv('PUB_SUB_HOST')
 METADATA_HOST = os.getenv('METADATA_HOST')
 
 
+class DeviceCode(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    device_code = db.Column(db.String(64), unique=True, nullable=False)
+    user_code = db.Column(db.String(16), unique=True, nullable=False)
+    expires_at = db.Column(db.Integer, nullable=False)
+    interval = db.Column(db.Integer, default=5)
+    verified = db.Column(db.Boolean, default=False)
+    username = db.Column(db.String(64), nullable=True)
+
+class AccessToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(128), unique=True, nullable=False)
+    username = db.Column(db.String(64), nullable=False)
+    expires_at = db.Column(db.Integer, nullable=False)
+
+
 @login_manager.user_loader
 def load_user(user_id):
-    return db.query(User).get(int(user_id))
+    return User.query.get(int(user_id))
 
-# Endpoint and client authentication
-
-
-# In-memory DB (for demo only)
-device_codes = {}
-user_sessions = {}
-tokens = {}
 
 # === Endpoint: CLI gets a device code ===
-
 
 @app.route("/device/code", methods=["POST"])
 def device_code():
     device_code = str(uuid4())
     user_code = str(uuid4())[:8].upper()
-    now = int(time.time())
+    expires_at = int(time.time()) + 600
 
-    device_codes[device_code] = {
-        "user_code": user_code,
-        "expires_in": 600,
-        "interval": 5,
-        "verified": False,
-        "created_at": now,
-        "username": None
-    }
+    dc = DeviceCode(
+        device_code=device_code,
+        user_code=user_code,
+        expires_at=expires_at
+    )
+    
+    db.session.add(dc)
+    db.session.commit()
+
     return jsonify({
         "device_code": device_code,
         "user_code": user_code,
@@ -76,7 +86,7 @@ def device_code():
 def device_entry():
     if request.method == "GET":
         return render_template_string('''
-            <h2>Device Login</h2>
+            <h2>Device Verification</h2>
             <form method="post">
                 <label>Enter your code:</label><br>
                 <input name="user_code" required><br>
@@ -85,12 +95,24 @@ def device_entry():
         ''')
 
     user_code = request.form.get("user_code")
-    for dev_code, info in device_codes.items():
-        if info["user_code"] == user_code:
-            session["device_code"] = dev_code
-            return redirect("/auth/user/login?type=device")
+    device = DeviceCode.query.filter_by(user_code=user_code).first()
 
-    return "Invalid code", 400
+    if not device:
+        return "Invalid code", 400
+    
+    session["device_code"] = device.device_code
+
+    return render_template_string('''
+        <h2>Login</h2>
+        <form method="post" action="/auth/user/login?type=device">
+            <input type="hidden" name="device_code" value="{{ device_code }}">
+            <label>Username:</label><br>
+            <input name="username" required><br>
+            <label>Password:</label><br>
+            <input type="password" name="password" required><br><br>
+            <input type="submit" value="Login">
+        </form>
+    ''', device_code=device.device_code)
 
 # === Endpoint: CLI polls for token ===
 
@@ -100,17 +122,20 @@ def verify_token():
     data = request.json or request.form
     token = data.get("token")
 
-    if token in tokens:
-        # Get the rest of tokens from the in-memory DB
-        userdata = tokens[token]
-        user = db.query(User).filter_by(username=userdata["username"]).first()
+    if not token:
+        return jsonify({"error": "missing_token"}), 400
 
+    token_entry = AccessToken.query.filter_by(token=token).first()
+    now = int(time.time())
+    if token_entry and token_entry.expires_at > now:
+        # Token is valid, get all user information
+        user = User.query.filter_by(username=token_entry.username).first()
         if not user:
             return jsonify({"error": "user_not_found"}), 404
-
+        
         return jsonify(user.to_dict()), 200
 
-    return jsonify({"error": "invalid_token"}), 401
+    return jsonify({"error": "invalid_or_expired_token"}), 401
 
 # === Protected API example ===
 
@@ -122,20 +147,20 @@ def profile():
         return jsonify({"error": "missing_token"}), 401
 
     token = auth.split()[1]
-    if token not in tokens:
-        return jsonify({"error": "invalid_token"}), 401
+    token_entry = AccessToken.query.filter_by(token=token).first()
+    now = int(time.time())
+    if not token_entry or token_entry.expires_at <= now:
+        return jsonify({"error": "invalid_or_expired_token"}), 401
 
-    return jsonify({"username": tokens[token]["username"]})
+    return jsonify({"username": token_entry.username, "token": token})
 
 
 # Authentication service routes
-"""
-Route to create an organization
-"""
-
-
 @app.route('/auth/organization/<name>/<acronym>', methods=["PUT"])
 def createOrganization(name, acronym):
+    """
+    Route to create an organization
+    """
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy'
     data = {"option": "NEW", "fullname": name, "acronym": acronym,
             "fathers_token": request.json['fathers_token']}
@@ -143,13 +168,14 @@ def createOrganization(name, acronym):
     return jsonify(results.json()), results.status_code
 
 
-"""
-Route to get the metadata of an organization
-"""
+
 
 
 @app.route('/auth/organization/<name>/<acronym>', methods=["GET"])
 def getOrganization(name, acronym):
+    """
+    Route to get the metadata of an organization
+    """
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy'
     data = {"option": "CHECK", "fullname": name, "acronym": acronym}
     results = requests.post(url_service, json=data)
@@ -224,27 +250,36 @@ def login():
         user_data = resp.json()["data"]
 
         if "type" in request.args and request.args["type"] == "device":
-            dev_code = session.get("device_code")
-            if dev_code and dev_code in device_codes:
+            device_code = request.form.get("device_code")
+            device = DeviceCode.query.filter_by(device_code=device_code).first()
+            if not device:
+                return "Invalid session", 400
 
-                # Store user credentials
-                user = db.query(User).filter_by(
-                    username=user_data["username"]).first()
-                if not user:
-                    user = User(
-                        username=user_data["username"],
-                        access_token=user_data["access_token"],
-                        user_token=user_data["tokenuser"],
-                        api_key=user_data["apikey"]
-                    )
-                    db.add(user)
-                    db.commit()
+            token = str(uuid4())
+            expires_at = int(time.time()) + 3600  # Token valid for 1 hour
 
-                device_codes[dev_code]["verified"] = True
-                device_codes[dev_code]["username"] = inputs["username"]
-                access_token = str(uuid4())
-                tokens[access_token] = {"username": inputs["username"]}
-                return f"Login successful. You may close this tab. Please return to your CLI and paste this token: \n\n {access_token}", 200
+            device.verified = True
+            device.username = inputs["username"]
+            db.session.add(AccessToken(token=token, username=inputs["username"], expires_at=expires_at))
+            db.session.commit()
+
+            # Store user credentials
+            user = User.query.filter_by(username=user_data["username"]).first()
+            if not user:
+                user = User(
+                    username=user_data["username"],
+                    access_token=user_data["access_token"],
+                    user_token=user_data["tokenuser"],
+                    api_key=user_data["apikey"]
+                )
+                db.session.add(user)
+                db.session.commit()
+
+            return render_template_string(f'''
+                <h2>Authentication Successful</h2>
+                <p>Copy and paste this token into your CLI application:</p>
+                <code>{token}</code>
+            ''')
 
         # If no next parameter, just return the user data)
         return resp.json(), 200
@@ -383,4 +418,6 @@ def clean(admintoken):
 
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(debug=True, host='0.0.0.0', port=80)

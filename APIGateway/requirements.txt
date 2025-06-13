@@ -5,3 +5,4 @@ requests
 numpy
 drex==0.0.246
 sqlalchemy
+Flask-SQLAlchemy
