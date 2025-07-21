@@ -15,3 +15,4 @@ site/
 APIGateway/app/db.sqlite
 APIGateway/app/.temp
 APIGateway/app/instance/db.sqlite
+APIGateway/app/salida

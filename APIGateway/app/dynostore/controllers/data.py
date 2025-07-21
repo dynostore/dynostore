@@ -37,11 +37,26 @@ class DataController:
         return resp.json(), resp.status_code
 
     @staticmethod
-    def download_chunk(route):
+    def download_chunk(route, key_object, id):
         url = DataController._http_url(route['route'])
         resp = requests.get(url)
         resp.raise_for_status()
-        return resp.content
+
+        if resp.status_code != 200:
+            raise Exception(
+                f"Failed to download chunk from {url}: {resp.status_code}")
+
+        # Save the content to a temporary file
+        data = resp.content
+        temp_dir = os.path.join(os.getcwd(), '.temp/downloads')
+        os.makedirs(temp_dir, exist_ok=True)
+
+        chunk_path = os.path.join(temp_dir, f"{key_object}D{id}")
+        with open(chunk_path, 'wb') as f:
+            f.write(data)
+        print(f"Chunk {id} downloaded and saved to {chunk_path}", flush=True)
+
+        return chunk_path
 
     @staticmethod
     def pull_data(request, token_user, key_object, metadata_service, pubsub_service):
@@ -51,14 +66,55 @@ class DataController:
             return resp.json(), resp.status_code
 
         routes = resp.json()['data']['routes']
+
+        # Prepare input arguments as (route, key_object) pairs
+        args = [(route, key_object, id) for id, route in enumerate(routes)]
+        print(args, flush=True)
         with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
-            results = pool.map(DataController.download_chunk, routes)
+            results = pool.starmap(DataController.download_chunk, args)
 
         if len(results) > 1:
-            chunks = [pickle.loads(r) for r in results]
-            obj = ida.assemble_bytes(chunks)
+            # Reconstruct the object from the downloaded chunks
+            reconstructed_path = os.path.join('.temp/downloads', f"{key_object}")
+
+            base_args = ["/app/dynostore/datamanagement/reliability/IDA/Rec",
+                         reconstructed_path , "16"]
+            for i, chunk_path in enumerate(results):
+                base_args.append(str(chunk_path))
+
+            print("Base args:", base_args, flush=True)
+
+            # Call the C code to split the bytes
+            proc = subprocess.Popen(
+                base_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+
+            stdout_data, stderr_data = proc.communicate()
+            print("STDOUT:", stdout_data.decode('utf-8'), flush=True)
+            print("STDERR:", stderr_data.decode('utf-8'), flush=True)
+            exit_code = proc.returncode
+
+            if exit_code != 0:
+                print(
+                    f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
+                print(f"Exit code: {exit_code}", flush=True)
+
+                # Raise an exception or handle the error as needed
+                raise RuntimeError(
+                    f"IDA Dis command failed with exit code {exit_code}")
+
+            # Read the reconstructed object from the file
+            with open(reconstructed_path, 'rb') as f:
+                obj = f.read()
         else:
-            obj = results[0]
+            # If only one chunk, read it directly
+            reconstructed_path = os.path.join('.temp/downloads', f"{key_object}D0")
+            # Read the reconstructed object from the file
+            with open(reconstructed_path, 'rb') as f:
+                obj = f.read()
+
 
         return obj, 200, {'Content-Type': 'application/octet-stream'}
 
@@ -92,10 +148,11 @@ class DataController:
 
         current_path = os.getcwd()
         print(current_path, flush=True)
-        
+
         # Call the C code to split the bytes
         proc = subprocess.Popen(
-            ["/app/dynostore/datamanagement/reliability/IDA/Dis", str(n), str(k), str(16), str(path_object)],
+            ["/app/dynostore/datamanagement/reliability/IDA/Dis",
+                str(n), str(k), str(16), str(path_object)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -106,17 +163,24 @@ class DataController:
         exit_code = proc.returncode
 
         if exit_code != 0:
-            print(f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
+            print(
+                f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
             print(f"Exit code: {exit_code}", flush=True)
-            
+
             # Raise an exception or handle the error as needed
-            raise RuntimeError(f"IDA Dis command failed with exit code {exit_code}")
+            raise RuntimeError(
+                f"IDA Dis command failed with exit code {exit_code}")
 
-        #subprocess.run(["IDA", "Dis", str(n), str(k), str(16), str(path_object)], check=True)
+        # subprocess.run(["IDA", "Dis", str(n), str(k), str(16), str(path_object)], check=True)
 
-        #chunks = ida.split_bytes(request_bytes, n, k)
-        #return [pickle.dumps(c) for c in chunks], n, k
-        return n,k
+        # chunks = ida.split_bytes(request_bytes, n, k)
+        # return [pickle.dumps(c) for c in chunks], n, k
+        return n, k
+
+    @staticmethod
+    def _load_chunk(chunk_path):
+        with open(chunk_path, 'rb') as f:
+            return f.read()
 
     @staticmethod
     def push_data(request, metadata_service, pubsub_service, catalog, token_user, key_object):
@@ -128,13 +192,14 @@ class DataController:
         # Write the object to FS in a temporary location
         temp_dir = os.path.join(os.getcwd(), '.temp')
         os.makedirs(temp_dir, exist_ok=True)
-        
+
         object_path = os.path.join(temp_dir, request_json['key'])
         with open(object_path, 'wb') as f:
             f.write(request_bytes)
-            
+
         if request_json.get('resiliency') == 1:
-            n, k = DataController._resilient_distribution(object_path, len(request_bytes), token_user, metadata_service)
+            n, k = DataController._resilient_distribution(
+                object_path, len(request_bytes), token_user, metadata_service)
         else:
             data = [request_bytes]
             n = k = 1
@@ -158,17 +223,25 @@ class DataController:
         nodes = resp.json()['nodes']
         upload_start = time.perf_counter_ns()
 
-        for i, node in enumerate(nodes):
-            url = DataController._http_url(node['route'])
-            upload_resp = requests.put(url, data=data[i])
+        if n == 1:
+            url = DataController._http_url(nodes[0]['route'])
+
+            upload_resp = requests.put(url, data=data[0])
             if upload_resp.status_code != 201:
                 return upload_resp.json(), upload_resp.status_code
+        else:
+            for i, node in enumerate(nodes):
+                url = DataController._http_url(node['route'])
+                data = DataController._load_chunk(f"{object_path}D{i}")
+                upload_resp = requests.put(url, data=data)
+                if upload_resp.status_code != 201:
+                    return upload_resp.json(), upload_resp.status_code
 
         upload_end = time.perf_counter_ns()
 
         reg_result, reg_status = CatalogController.registFileInCatalog(
             pubsub_service, token_catalog, token_user, key_object)
-        
+
         if reg_status != 201:
             return reg_result, reg_status
 

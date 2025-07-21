@@ -40,7 +40,7 @@ unsigned int Suma_Resta(unsigned int a,unsigned int b);
 unsigned int Multiplicacion(unsigned int a,unsigned int b);
 unsigned int Division(unsigned int a, unsigned int b);
 
-void main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	/*truct LogFile AccessLayerLog;
 	char *logPath = "Salida/file1_1MB.csv";	
@@ -103,7 +103,7 @@ void main(int argc, char **argv)
 			break;
 		default:
 			printf("No tengo ese campo\n");
-			return;
+			return 1;
 	}
 	/*Liberar memoria*/
 	Liberar_Matriz(MatrizTransf,M);
@@ -148,6 +148,9 @@ void main(int argc, char **argv)
 		//Se muestra el contenido en la pantalla
 		printf("Linea de la bitacora:\n%s",logContent);
 	}*/
+
+	return 0;
+
 }
 void Recupera8(char **argv)
 {
