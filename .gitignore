@@ -13,3 +13,5 @@ APIGateway/app/dynostore/controllers/__pycache__/
 site/
 .dynostore.txt
 APIGateway/app/db.sqlite
+APIGateway/app/.temp
+APIGateway/app/instance/db.sqlite

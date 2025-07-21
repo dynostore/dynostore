@@ -176,6 +176,7 @@ def assemble_bytes(fragments, output_filename=None):
     '''
 
     (m, n, p, fragments, original_size)=fragment_reader_bytes(fragments)
+    print("m, n, p, original_size", m, n, p, original_size, flush=True)
     building_basis=[]
     fragments_matrix=[]
     for (idx, fragment) in fragments:
@@ -183,7 +184,8 @@ def assemble_bytes(fragments, output_filename=None):
         fragments_matrix.append(fragment)
 
     inverse_building_matrix=vandermonde_inverse(building_basis, p)
-
+    print("inverse_building_matrix", inverse_building_matrix, flush=True)
+    print(fragments_matrix, flush=True)
     output_matrix=matrix_product(
         inverse_building_matrix, fragments_matrix, p)
 

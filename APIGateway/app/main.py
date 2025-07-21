@@ -53,7 +53,7 @@ def device_code():
         user_code=user_code,
         expires_at=expires_at
     )
-    
+
     db.session.add(dc)
     db.session.commit()
 
@@ -78,7 +78,7 @@ def device_entry():
 
     if not device:
         return "Invalid code", 400
-    
+
     session["device_code"] = device.device_code
 
     return render_template("login.html", device_code=device.device_code)
@@ -99,10 +99,14 @@ def verify_token():
     now = int(time.time())
     if token_entry and token_entry.expires_at > now:
         # Token is valid, get all user information
+        # Get from remote
+
+        print("USER", token_entry.to_dict(), flush=True)
         user = User.query.filter_by(username=token_entry.username).first()
+        print("USER", user.to_dict(), flush=True)
         if not user:
             return jsonify({"error": "user_not_found"}), 404
-        
+
         return jsonify(user.to_dict()), 200
 
     return jsonify({"error": "invalid_or_expired_token"}), 401
@@ -158,6 +162,7 @@ def getOrganizations():
     results = requests.get(url_service)
     return jsonify(results.json()), results.status_code
 
+
 @app.route('/auth/user', methods=["POST"])
 def createUser():
     """
@@ -211,7 +216,8 @@ def login():
 
         if "type" in request.args and request.args["type"] == "device":
             device_code = request.form.get("device_code")
-            device = DeviceCode.query.filter_by(device_code=device_code).first()
+            device = DeviceCode.query.filter_by(
+                device_code=device_code).first()
             if not device:
                 return "Invalid session", 400
 
@@ -220,11 +226,14 @@ def login():
 
             device.verified = True
             device.username = inputs["username"]
-            db.session.add(AccessToken(token=token, username=inputs["username"], expires_at=expires_at))
+            db.session.add(AccessToken(
+                token=token, username=inputs["username"], expires_at=expires_at))
             db.session.commit()
 
             # Store user credentials
             user = User.query.filter_by(username=user_data["username"]).first()
+            print("user_data", user_data, flush=True)
+            print("user", user.to_dict() , flush=True)
             if not user:
                 user = User(
                     username=user_data["username"],
@@ -234,8 +243,13 @@ def login():
                 )
                 db.session.add(user)
                 db.session.commit()
+            elif user.user_token != user_data["tokenuser"]:
+                user.access_token = user_data["access_token"]
+                user.user_token = user_data["tokenuser"]
+                user.api_key = user_data["apikey"]
+                db.session.commit()
 
-            return render_template("auth_success.html",token=token)
+            return render_template("auth_success.html", token=token)
 
         # If no next parameter, just return the user data)
         return resp.json(), 200
@@ -283,6 +297,7 @@ def getCatalog(tokenuser, catalog):
     """
     return CatalogController.getCatalog(PUB_SUB_HOST, catalog, tokenuser)
 
+
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)
 def deleteCatalog(tokenuser, catalog):
@@ -292,6 +307,7 @@ def deleteCatalog(tokenuser, catalog):
     url_service = f'http://{PUB_SUB_HOST}/catalog/{catalog}/?tokenuser={tokenuser}'
     results = requests.delete(url_service)
     return jsonify(results.json()), results.status_code
+
 
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>/list', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
@@ -309,14 +325,17 @@ def downloadObject(tokenuser, keyobject):
     """
     Route to download an object
     """
-    return DataController.pullData(request, tokenuser, keyobject, METADATA_HOST, PUB_SUB_HOST)
+    return DataController.pull_data(request, tokenuser, keyobject, METADATA_HOST, PUB_SUB_HOST)
 
 # DREX Experiments (temporal functions)
+
+
 @app.route('/storage/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 def uploadObjectDREX(tokenuser, catalog, keyobject):
     # print("NEW", tokenuser, catalog, keyobject, flush=True)
-    return DataController.pushDataDRex(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
+    return DataController.push_data(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
+
 
 @app.route('/storage/<tokenuser>/<keyobject>/exists', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
@@ -325,6 +344,7 @@ def existsObject(tokenuser, keyobject):
     Route to check if an object exists
     """
     return DataController.existsObject(request, tokenuser, keyobject, METADATA_HOST)
+
 
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)
@@ -335,6 +355,8 @@ def deleteObject(tokenuser, keyobject):
     return DataController.deleteObject(request, tokenuser, keyobject, METADATA_HOST)
 
 # Data containers management
+
+
 @app.route('/datacontainer/<admintoken>', methods=["POST"])
 @validateAdminToken(auth_host=AUTH_HOST)
 def registDataContainer(admintoken):

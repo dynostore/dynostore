@@ -62,7 +62,7 @@ def matrix_product(A,B, p):
         for j in range(len(B[0])): 
             ans=0
             for k in range(len(A[0])):
-                ans=(ans+(A[i][k]*B[k][j]))%p
+                ans = (ans + int(A[i][k]) * int(B[k][j])) % p
             row.append(ans)
         result.append(row)
     return result

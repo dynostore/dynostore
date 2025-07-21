@@ -2,257 +2,179 @@ import requests
 import json
 import pickle
 import multiprocessing
-
 import time
-from dynostore.controllers.catalogs import CatalogController
-#from drex.utils.reliability import ida
-from dynostore.datamanagement.reliability import ida
-from drex.utils.load_data import RealRecords
-from drex.schedulers.algorithm4 import *
-
 import numpy as np
 import sys
+import os
+import subprocess
 
 
+from dynostore.controllers.catalogs import CatalogController
+from dynostore.datamanagement.reliability import ida
+from drex.utils.load_data import RealRecords
+from drex.utils.prediction import Predictor
+from drex.schedulers.algorithm4 import algorithm4, system_saturation
 
-class DataController():
 
-    def deleteObject(
-        request,
-        tokenUser: str,
-        keyObject: str,
-        metadaService: str
-    ):
-        url_to_delete = f'http://{metadaService}/api/storage/{tokenUser}/{keyObject}'
-        response = requests.delete(url_to_delete)
-        return response.json(), response.status_code
+class DataController:
+    predictor = Predictor()
+    real_records = RealRecords(dir_data="data/")
 
-    def existsObject(
-        request,
-        tokenUser: str,
-        keyObject: str,
-        metadaService: str
-    ):
-        url_to_pull_metadata = f'http://{metadaService}/api/storage/{tokenUser}/{keyObject}/exists'
-        response = requests.get(url_to_pull_metadata)
-        return response.json(), response.status_code
+    @staticmethod
+    def _http_url(route):
+        return route if route.startswith("http") else f"http://{route}"
 
-    def downloadChunk(route):
-        url_node = route['route']
-        url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
-        response = requests.get(url_node)
-        if response.status_code != 200:
-            return response.json(), response.status_code
-        return response.content
-    
-    def pullData(
-        request,
-        tokenUser: str,
-        keyObject: str,
-        metadaService: str,
-        pubsubService: str
-    ):
-        url_to_pull_metadata = f'http://{metadaService}/api/storage/{tokenUser}/{keyObject}'
-        response = requests.get(url_to_pull_metadata)
-        
-        print(response.text, flush=True)
+    @staticmethod
+    def delete_object(request, token_user, key_object, metadata_service):
+        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
+        resp = requests.delete(url)
+        return resp.json(), resp.status_code
 
-        if response.status_code >= 400:
-            return response.json(), response.status_code
+    @staticmethod
+    def exists_object(request, token_user, key_object, metadata_service):
+        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}/exists"
+        resp = requests.get(url)
+        return resp.json(), resp.status_code
 
-        print(response.text, flush=True)
-        data = response.json()
-        
-        routes = data['data']['routes']
-        results = []
-        num_processes = multiprocessing.cpu_count()
-        objectRes = None
-        
-        with multiprocessing.Pool(num_processes) as pool:
-            results = pool.map(DataController.downloadChunk, routes)
-        
-        
+    @staticmethod
+    def download_chunk(route):
+        url = DataController._http_url(route['route'])
+        resp = requests.get(url)
+        resp.raise_for_status()
+        return resp.content
+
+    @staticmethod
+    def pull_data(request, token_user, key_object, metadata_service, pubsub_service):
+        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
+        resp = requests.get(url)
+        if resp.status_code >= 400:
+            return resp.json(), resp.status_code
+
+        routes = resp.json()['data']['routes']
+        with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+            results = pool.map(DataController.download_chunk, routes)
+
         if len(results) > 1:
-            results = [pickle.loads(fragment) for fragment in results]
-            objectRes = ida.assemble_bytes(results)
+            chunks = [pickle.loads(r) for r in results]
+            obj = ida.assemble_bytes(chunks)
         else:
-            objectRes = results[0]
+            obj = results[0]
 
-        return objectRes, 200, {'Content-Type': 'application/octet-stream'}
+        return obj, 200, {'Content-Type': 'application/octet-stream'}
 
-    def uploadChunk(node_data):
-        #print(node, flush=True)
-        node = node_data[0]
-        data = node_data[1]
-        url_node = node['route']
-        url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
-        response = requests.put(url_node, data=data)
-        #print(response.text, flush=True)
-        if response.status_code != 201:
-            return response.json(), response.status_code
+    @staticmethod
+    def _resilient_distribution(path_object, size, token_user, metadata_service):
+        server_url = f"http://{metadata_service}/api/servers/{token_user}"
+        servers = requests.get(server_url).json()
+        print(f"Servers: {servers}", flush=True)
+        num_nodes = len(servers)
+        node_sizes = [int(s['storage']) for s in servers]
 
-    def pushDataDRex(request,
-        metadaService: str,
-        pubsubService: str,
-        catalog: str,
-        tokenUser: str,
-        keyObject: str
-    ):
+        reliability_nodes = np.random.rand(num_nodes) * (0.3 - 0.01) + 0.01
+        bandwidths = [10] * num_nodes
+        file_size_mb = size / 1024 / 1024
+
+        n, k = None, None
+        nodes, n, k, _ = algorithm4(
+            num_nodes,
+            reliability_nodes,
+            bandwidths,
+            0.99,
+            file_size_mb,
+            DataController.real_records,
+            node_sizes,
+            max(node_sizes) / 1024 / 1024,
+            sys.maxsize,
+            system_saturation,
+            sum(node_sizes) / 1024 / 1024,
+            DataController.predictor
+        )
+
+        current_path = os.getcwd()
+        print(current_path, flush=True)
+        
+        # Call the C code to split the bytes
+        proc = subprocess.Popen(
+            ["/app/dynostore/datamanagement/reliability/IDA/Dis", str(n), str(k), str(16), str(path_object)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+        stdout_data, stderr_data = proc.communicate()
+        print("STDOUT:", stdout_data.decode('utf-8'), flush=True)
+        print("STDERR:", stderr_data.decode('utf-8'), flush=True)
+        exit_code = proc.returncode
+
+        if exit_code != 0:
+            print(f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
+            print(f"Exit code: {exit_code}", flush=True)
+            
+            # Raise an exception or handle the error as needed
+            raise RuntimeError(f"IDA Dis command failed with exit code {exit_code}")
+
+        #subprocess.run(["IDA", "Dis", str(n), str(k), str(16), str(path_object)], check=True)
+
+        #chunks = ida.split_bytes(request_bytes, n, k)
+        #return [pickle.dumps(c) for c in chunks], n, k
+        return n,k
+
+    @staticmethod
+    def push_data(request, metadata_service, pubsub_service, catalog, token_user, key_object):
         start_time = time.perf_counter_ns()
         files = request.files
         request_json = json.loads(files['json'].read().decode('utf-8'))
         request_bytes = files['data'].read()
-        n = request_json['chunks']
-        k = request_json['required_chunks']
-        nodes = request_json['nodes']
-        print(n,k,flush=True)
+
+        # Write the object to FS in a temporary location
+        temp_dir = os.path.join(os.getcwd(), '.temp')
+        os.makedirs(temp_dir, exist_ok=True)
         
-        start_chunking = time.perf_counter_ns()
-        data = ida.split_bytes(request_bytes, n, k)
-        data = [pickle.dumps(fragment) for fragment in data]
-        
-        end_chunking = time.perf_counter_ns()
-        
-        results, status_code = CatalogController.createOrGetCatalog(
-            request, pubsubService, catalog, tokenUser)
-
-        if status_code == 201 or status_code == 302:
-
-            tokenCatalog = results['data']['tokencatalog']
-
-            url_to_push_metadata = f'http://{metadaService}/api/storage/drex/{tokenUser}/{tokenCatalog}/{keyObject}'
-            response = requests.put(url_to_push_metadata, json=request_json)
-            print("holas",response.text, flush=True)
+        object_path = os.path.join(temp_dir, request_json['key'])
+        with open(object_path, 'wb') as f:
+            f.write(request_bytes)
             
-            if response.status_code != 201:
-                return response.json(), response.status_code
-            
-            nodes = response.json()['nodes']
-            upload_start = time.perf_counter_ns()
-            #with multiprocessing.Pool(num_processes) as pool:
-            #    results = pool.map(DataController.uploadChunk, nodes_datas)
-
-            
-            for i,node in enumerate(nodes):
-                print(node, flush=True)
-                url_node = node['route']
-                url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
-                response = requests.put(url_node, data=data[i])
-                print(response.text, flush=True)
-                if response.status_code != 201:
-                    print()
-                    return response.json(), response.status_code
-            
-            upload_end = time.perf_counter_ns()
-            
-            results, code = CatalogController.registFileInCatalog(
-                pubsubService, tokenCatalog, tokenUser, keyObject)
-
-            if code != 201:
-                return results, code
-            end_time = time.perf_counter_ns()
-            return {"total_time": (end_time - start_time), "time_upload": (upload_end - upload_start), "chunking_time": (end_chunking-start_chunking)}, response.status_code
-
+        if request_json.get('resiliency') == 1:
+            n, k = DataController._resilient_distribution(object_path, len(request_bytes), token_user, metadata_service)
         else:
-            return results, status_code
+            data = [request_bytes]
+            n = k = 1
+
+        request_json['chunks'] = n
+        request_json['required_chunks'] = k
+
+        catalog_result, status = CatalogController.createOrGetCatalog(
+            request, pubsub_service, catalog, token_user)
+
+        if status not in [201, 302]:
+            return catalog_result, status
+
+        token_catalog = catalog_result['data']['tokencatalog']
+        metadata_url = f"http://{metadata_service}/api/storage/{token_user}/{token_catalog}/{key_object}"
+        resp = requests.put(metadata_url, json=request_json)
+
+        if resp.status_code != 201:
+            return resp.json(), resp.status_code
+
+        nodes = resp.json()['nodes']
+        upload_start = time.perf_counter_ns()
+
+        for i, node in enumerate(nodes):
+            url = DataController._http_url(node['route'])
+            upload_resp = requests.put(url, data=data[i])
+            if upload_resp.status_code != 201:
+                return upload_resp.json(), upload_resp.status_code
+
+        upload_end = time.perf_counter_ns()
+
+        reg_result, reg_status = CatalogController.registFileInCatalog(
+            pubsub_service, token_catalog, token_user, key_object)
         
-    def pushData(
-        request,
-        metadaService: str,
-        pubsubService: str,
-        catalog: str,
-        tokenUser: str,
-        keyObject: str,
-        predictor
-    ):
-        start_time = time.perf_counter_ns()
-        files = request.files
-        #print(files, flush=True)
-        request_json = json.loads(files['json'].read().decode('utf-8'))
-        request_bytes = files['data'].read()
-        #print(request_json, flush=True)
-        data = []
-        if request_json['resiliency'] == 1:
-            #n = request_json['chunks']
-            # = request_json['required_chunks']
-            
-            # get available nodes
-            url_service = f"http://{metadaService}/api/servers/{tokenUser}"
-            results = requests.get(url_service)
-            
-            print(results, flush=True)
-            servers = results.json()
-            numberNodes = len(servers)
-            
-            reliability_nodes = np.random.rand(numberNodes)
-            max_rel = 0.3
-            min_rel = 0.01
-            reliability_nodes = reliability_nodes * (max_rel - min_rel) + min_rel
-            bandwidths = [10] * numberNodes
-            # Reliability min we want to meet
-            reliability_threshold = 0.99
-            file_size_in_mb = len(request_bytes) / 1024 / 1024
-            real_records = RealRecords(dir_data="data/")
-            node_sizes = [int(server['storage']) for server in servers]
-            max_node_size = max([int(server['storage']) for server in servers]) / 1024 / 1024
-            min_data_size = sys.maxsize
-            total_node_size = sum([int(server['storage']) for server in servers]) / 1024 / 1024
-            
-            nodes, n, k, node_sizes = algorithm4(numberNodes, reliability_nodes,
-                                         bandwidths, reliability_threshold, file_size_in_mb, real_records, node_sizes,
-                                         max_node_size, min_data_size, system_saturation, total_node_size, predictor)
-            data = ida.split_bytes(request_bytes, n, k)
-            data = [pickle.dumps(fragment) for fragment in data]
-            request_json['chunks'] = n
-            request_json['required_chunks'] = k
-        else:
-            request_json['chunks'] = 1
-            request_json['required_chunks'] = 1
-            data.append(request_bytes)
-            
+        if reg_status != 201:
+            return reg_result, reg_status
 
-        results, status_code = CatalogController.createOrGetCatalog(
-            request, pubsubService, catalog, tokenUser)
-
-        if status_code == 201 or status_code == 302:
-
-            tokenCatalog = results['data']['tokencatalog']
-
-            url_to_push_metadata = f'http://{metadaService}/api/storage/{tokenUser}/{tokenCatalog}/{keyObject}'
-
-            response = requests.put(url_to_push_metadata, json=request_json)
-            print("holas",response.text, flush=True)
-            if response.status_code != 201:
-                return response.json(), response.status_code
-
-            nodes = response.json()['nodes']
-            
-            num_processes = multiprocessing.cpu_count()
-            objectRes = None
-            
-            nodes_datas = [[nodes[i], data[i]] for i in range(len(nodes))]
-            upload_start = time.perf_counter_ns()
-            #with multiprocessing.Pool(num_processes) as pool:
-            #    results = pool.map(DataController.uploadChunk, nodes_datas)
-
-            
-            for i,node in enumerate(nodes):
-                print(node, flush=True)
-                url_node = node['route']
-                url_node = url_node if url_node.startswith("http") else f'http://{url_node}'
-                response = requests.put(url_node, data=data[i])
-                print(response.text, flush=True)
-                if response.status_code != 201:
-                    return response.json(), response.status_code
-            
-            upload_end = time.perf_counter_ns()
-
-            results, code = CatalogController.registFileInCatalog(
-                pubsubService, tokenCatalog, tokenUser, keyObject)
-
-            if code != 201:
-                return results, code
-            end_time = time.perf_counter_ns()
-            return {"total_time": (end_time - start_time), "time_upload": (upload_end - upload_start)}, response.status_code
-        else:
-            return results, status_code
+        end_time = time.perf_counter_ns()
+        return {
+            "total_time": end_time - start_time,
+            "time_upload": upload_end - upload_start,
+            "key_object": key_object
+        }, 201

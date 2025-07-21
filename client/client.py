@@ -6,23 +6,29 @@ import io
 import json
 from nfrs.compress import ObjectCompressor
 from nfrs.cipher import SecureObjectStore
+from auth.authenticate import DeviceAuthenticator
 
 class Client(object):
 
     def __init__(self, metadata_server):
         self.metadata_server = metadata_server
+
         self.object_compressor = ObjectCompressor()
         self.object_encrypter = SecureObjectStore("aaaa")
+        authenticator = DeviceAuthenticator(auth_url=self.metadata_server)
+        authenticator.authenticate()
+        self.token_data = authenticator.token_data
+        print(self.token_data, flush=True)
+       
 
     def evict(
         self,
         key: str,
-        token_user: str = None,
         session: requests.Session = None
     ) -> None:
         delete_ = requests.delete if session is None else session.delete
         response = delete_(
-            f'http://{self.metadata_server}/storage/{token_user}/{key}'
+            f'http://{self.metadata_server}/storage/{self.token_data["user_token"]}/{key}'
         )
 
         if not response.ok:
@@ -35,13 +41,12 @@ class Client(object):
     def exists(
         self,
         key: str,
-        token_user: str = None,
         session: requests.Session = None
     ) -> bool:
 
         get_ = requests.get if session is None else session.get
         response = get_(
-            f'http://{self.metadata_server}/storage/{token_user}/{key}/exists'
+            f'http://{self.metadata_server}/storage/{self.token_data["user_token"]}/{key}/exists'
         )
         if not response.ok:
             raise requests.exceptions.RequestException(
@@ -55,13 +60,12 @@ class Client(object):
     def get(
         self,
         key: str,
-        token_user: str = None,
         session: requests.Session = None
     ) -> bytes:
         get = requests.get if session is None else session.get
         # print(key, type(key), sep=" - ")
         response = get(
-            f'http://{self.metadata_server}/storage/{token_user}/{key}'
+            f'http://{self.metadata_server}/storage/{self.token_data["user_token"]}/{key}'
         )
 
         if response.status_code == 404:
@@ -76,19 +80,21 @@ class Client(object):
             data = bytearray()
             for chunk in response.iter_content(chunk_size=None):
                 data += chunk
-            # print(data)
+            
+            # Uncompress the data
+            #data = self.object_compressor.decompress(data)
+
             return bytes(data)
 
     def put(
         self,
         data: bytes,
-        token_user: str,
         catalog: str,
         key: str = str(uuid.uuid4()),
         name: str = None,
         session: requests.Session = None,
         is_encrypted: bool = False,
-        resiliency: int = 0,
+        resiliency: int = 1,
         nodes=None
     ) -> None:
         start_time = time.perf_counter_ns()
@@ -99,8 +105,6 @@ class Client(object):
         data_compressed = self.object_compressor.compress(data)
         data_encrypted = self.object_encrypter.encrypt(data_compressed) if is_encrypted else data_compressed
         print(data_encrypted)
-
-
         fake_file = io.BytesIO(data_encrypted)
 
         payload = {"name": name, "size": len(data_compressed), "hash": data_hash, "key": key,
@@ -111,7 +115,7 @@ class Client(object):
             ('data', ('data.bin', fake_file, 'application/octet-stream'))
         ]
         response = put(
-            f'http://{self.metadata_server}/storage/{token_user}/{catalog}/{key}', files=files)
+            f'http://{self.metadata_server}/storage/{self.token_data["user_token"]}/{catalog}/{key}', files=files)
 
         if response.status_code == 201:
             res = response.json()
@@ -125,7 +129,9 @@ class Client(object):
         return {
             "total_time": (end - start_time) / 1e6, 
             "metadata_time": res["total_time"] / 1e6, 
-            "upload_time": res["time_upload"] / 1e6
+            "upload_time": res["time_upload"] / 1e6,
+            "key_object": res["key_object"]
+            
         }
 
     
