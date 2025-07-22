@@ -5,7 +5,7 @@ data_bytes = data.encode("utf-8")
 
 client = Client("localhost:8095")
 
-response = client.put(data_bytes, "test", is_encrypted=False)
+response = client.put(data_bytes, "test", is_encrypted=True)
 
 print(response)
 

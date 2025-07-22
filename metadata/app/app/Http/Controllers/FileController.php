@@ -247,9 +247,21 @@ class FileController extends Controller
 
         $data = Server::locate($tokenuser, $file);
 
+        $data["file"] = array(
+            "name" => $file->name,
+            "keyfile" => $file->keyfile,
+            "size" => $file->size,
+            "hash" => $file->hash,
+            "is_encrypted" => $file->is_encrypted,
+            "chunks" => $file->chunks,
+            "required_chunks" => $file->required_chunks,
+            "disperse" => $file->disperse
+        );
+
         if ($file->is_encrypted == 1) {
             $abekey = Abekey::where('keyfile', $keyfile)->first();
             $data["abekey"] = $abekey->url;
+            
         }
 
         return response()->json([

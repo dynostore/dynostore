@@ -64,8 +64,13 @@ class DataController:
         resp = requests.get(url)
         if resp.status_code >= 400:
             return resp.json(), resp.status_code
+        
+        print(f"Response from metadata service: {resp.json()}", flush=True)
 
         routes = resp.json()['data']['routes']
+        metadata_object = resp.json()['data']['file']
+
+        print(metadata_object, flush=True)
 
         # Prepare input arguments as (route, key_object) pairs
         args = [(route, key_object, id) for id, route in enumerate(routes)]
@@ -116,7 +121,7 @@ class DataController:
                 obj = f.read()
 
 
-        return obj, 200, {'Content-Type': 'application/octet-stream'}
+        return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": metadata_object['is_encrypted']}
 
     @staticmethod
     def _resilient_distribution(path_object, size, token_user, metadata_service):

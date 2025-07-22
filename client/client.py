@@ -81,8 +81,12 @@ class Client(object):
             for chunk in response.iter_content(chunk_size=None):
                 data += chunk
             
+            # Decrypt the data if it was encrypted
+            if response.headers.get('is_encrypted', '0') == '1':
+                data = self.object_encrypter.decrypt(data)
+
             # Uncompress the data
-            #data = self.object_compressor.decompress(data)
+            data = self.object_compressor.decompress(data)
 
             return bytes(data)
 
