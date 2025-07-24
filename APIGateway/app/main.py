@@ -233,8 +233,7 @@ def login():
 
             # Store user credentials
             user = User.query.filter_by(username=user_data["username"]).first()
-            print("user_data", user_data, flush=True)
-            print("user", user.to_dict() , flush=True)
+
             if not user:
                 user = User(
                     username=user_data["username"],
