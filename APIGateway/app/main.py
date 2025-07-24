@@ -61,7 +61,7 @@ def device_code():
     return jsonify({
         "device_code": device_code,
         "user_code": user_code,
-        "verification_uri": f"http://{PUBLIC_IP}:8095/device",
+        "verification_uri": f"http://{PUBLIC_IP}/device",
         "expires_in": 600,
         "interval": 5
     })
