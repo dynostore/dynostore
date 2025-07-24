@@ -32,6 +32,7 @@ services:
       AUTH_HOST: auth
       PUB_SUB_HOST: pub_sub
       METADATA_HOST: metadata_server
+      PUBLIC_IP: localhost:8095
     restart: always
     networks:
       dynonetwork:
