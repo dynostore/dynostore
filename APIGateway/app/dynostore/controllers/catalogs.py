@@ -24,7 +24,7 @@ class CatalogController():
             }
         results = requests.put(url_service, json=data)
         print(results.text, flush=True)
-        if results.status_code == 201:
+        if results.status_code == 201 or results.status_code == 302:
             return results.json(), results.status_code
         else:
             return results.text, results.status_code
