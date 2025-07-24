@@ -60,7 +60,7 @@ def device_code():
     return jsonify({
         "device_code": device_code,
         "user_code": user_code,
-        "verification_uri": "http://localhost:8095/device",
+        "verification_uri": f"http://{METADATA_HOST}:8095/device",
         "expires_in": 600,
         "interval": 5
     })
