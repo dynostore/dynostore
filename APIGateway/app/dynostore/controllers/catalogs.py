@@ -24,7 +24,10 @@ class CatalogController():
             }
         results = requests.put(url_service, json=data)
         print(results.text, flush=True)
-        return results.json(), results.status_code
+        if results.status_code == 201:
+            return results.json(), results.status_code
+        else:
+            return results.text, results.status_code
     
     
     @staticmethod
