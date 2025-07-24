@@ -296,6 +296,16 @@ class FileController extends Controller
             return response()->json([
                 "message" => "File exists",
                 "exists" => true,
+                "metadata" => [
+                    "name" => $file->name,
+                    "keyfile" => $file->keyfile,
+                    "size" => $file->size,
+                    "hash" => $file->hash,
+                    "is_encrypted" => $file->is_encrypted,
+                    "chunks" => $file->chunks,
+                    "required_chunks" => $file->required_chunks,
+                    "disperse" => $file->disperse
+                ]
             ], 200);
         } else {
             return response()->json([

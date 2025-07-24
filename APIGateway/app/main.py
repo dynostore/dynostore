@@ -352,7 +352,7 @@ def deleteObject(tokenuser, keyobject):
     """
     Route to delete an object
     """
-    return DataController.deleteObject(request, tokenuser, keyobject, METADATA_HOST)
+    return DataController.delete_object(request, tokenuser, keyobject, METADATA_HOST)
 
 # Data containers management
 
