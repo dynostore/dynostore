@@ -33,6 +33,7 @@ login_manager.login_view = "login"
 AUTH_HOST = os.getenv('AUTH_HOST')
 PUB_SUB_HOST = os.getenv('PUB_SUB_HOST')
 METADATA_HOST = os.getenv('METADATA_HOST')
+PUBLIC_IP = os.getenv('PUBLIC_IP', 'localhost')
 
 
 @login_manager.user_loader
@@ -60,7 +61,7 @@ def device_code():
     return jsonify({
         "device_code": device_code,
         "user_code": user_code,
-        "verification_uri": f"http://{METADATA_HOST}:8095/device",
+        "verification_uri": f"http://{PUBLIC_IP}:8095/device",
         "expires_in": 600,
         "interval": 5
     })
