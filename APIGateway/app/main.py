@@ -343,7 +343,7 @@ def existsObject(tokenuser, keyobject):
     """
     Route to check if an object exists
     """
-    return DataController.existsObject(request, tokenuser, keyobject, METADATA_HOST)
+    return DataController.exists_object(request, tokenuser, keyobject, METADATA_HOST)
 
 
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["DELETE"])
