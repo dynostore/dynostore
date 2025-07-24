@@ -214,7 +214,8 @@ class DataController:
 
         catalog_result, status = CatalogController.createOrGetCatalog(
             request, pubsub_service, catalog, token_user)
-
+        print(f"Catalog result: {catalog_result}", flush=True)
+        print(f"Catalog status: {status}", flush=True)
         if status not in [201, 302]:
             return catalog_result, status
 
