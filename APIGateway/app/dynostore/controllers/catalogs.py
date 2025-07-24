@@ -56,7 +56,10 @@ class CatalogController():
     ):
         url_service = f'http://{pubsub}/catalog/{catalog}/object/{keyObject}'
         results = requests.post(url_service)
-        return results.json(), results.status_code
+        if results.status_code == 201:
+            return results.json(), results.status_code
+        elif results:
+            return results.text, results.status_code
     
     @staticmethod
     def listFilesInCatalog(
