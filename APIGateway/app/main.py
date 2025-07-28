@@ -295,6 +295,7 @@ def getCatalog(tokenuser, catalog):
     """
     Route to get the metadata of a catalog
     """
+    print(catalog, flush=True)
     return CatalogController.getCatalog(PUB_SUB_HOST, catalog, tokenuser)
 
 

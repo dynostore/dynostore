@@ -136,20 +136,21 @@ class DataController:
         file_size_mb = size / 1024 / 1024
 
         n, k = None, None
-        nodes, n, k, _ = algorithm4(
-            num_nodes,
-            reliability_nodes,
-            bandwidths,
-            0.99,
-            file_size_mb,
-            DataController.real_records,
-            node_sizes,
-            max(node_sizes) / 1024 / 1024,
-            sys.maxsize,
-            system_saturation,
-            sum(node_sizes) / 1024 / 1024,
-            DataController.predictor
-        )
+        nodes, n, k, _ = None, 5, 2, None  # Placeholder values for testing
+        # algorithm4(
+        #     num_nodes,
+        #     reliability_nodes,
+        #     bandwidths,
+        #     0.99,
+        #     file_size_mb,
+        #     DataController.real_records,
+        #     node_sizes,
+        #     max(node_sizes) / 1024 / 1024,
+        #     sys.maxsize,
+        #     system_saturation,
+        #     sum(node_sizes) / 1024 / 1024,
+        #     DataController.predictor
+        # )
 
         current_path = os.getcwd()
         print(current_path, flush=True)

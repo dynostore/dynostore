@@ -3,7 +3,7 @@ flask-login
 Authlib
 requests
 numpy
-drex==0.0.246
+drex==0.0.247
 sqlalchemy
 Flask-SQLAlchemy
 flask_login

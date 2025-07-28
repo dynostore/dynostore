@@ -37,6 +37,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.11
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 main:app
+             --workers 1 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
   
 
   metadata_server:
