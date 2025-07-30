@@ -25,21 +25,21 @@ services:
       context: ./APIGateway
       dockerfile: Dockerfile
     ports:
-        - "8095:80"
+        - "80:80"
     volumes:
       - ./APIGateway/app/:/app
     environment:
       AUTH_HOST: auth
       PUB_SUB_HOST: pub_sub
       METADATA_HOST: metadata_server
-      PUBLIC_IP: localhost:8095
+      PUBLIC_IP: 192.5.86.169
     restart: always
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.11
     command: >
       gunicorn --reload --bind 0.0.0.0:80 main:app
-             --workers 1 --threads 2
+             --workers 95 --threads 2
              --access-logfile '-' --error-logfile '-' --log-level debug
   
 
@@ -196,7 +196,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20001:5000"
+        - "20001:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects1/:/data/objects:rw
@@ -206,6 +206,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.19
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
     
   datacontainer2:
     image: dynostore/datacontainer:v1
@@ -213,7 +217,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20002:5000"
+        - "20002:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects2/:/data/objects:rw
@@ -223,6 +227,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.20
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
 
   datacontainer3:
     image: dynostore/datacontainer:v1
@@ -230,7 +238,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20003:5000"
+        - "20003:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects3/:/data/objects:rw
@@ -240,6 +248,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.21
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
 
   datacontainer4:
     image: dynostore/datacontainer:v1
@@ -247,7 +259,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20004:5000"
+        - "20004:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects4/:/data/objects:rw
@@ -257,6 +269,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.22
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
 
   datacontainer5:
     image: dynostore/datacontainer:v1
@@ -264,7 +280,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20005:5000"
+        - "20005:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects5/:/data/objects:rw
@@ -274,6 +290,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.23
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
 
   datacontainer6:
     image: dynostore/datacontainer:v1
@@ -281,7 +301,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20006:5000"
+        - "20006:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects6/:/data/objects:rw
@@ -291,6 +311,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.24
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
     
   datacontainer7:
     image: dynostore/datacontainer:v1
@@ -298,7 +322,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20007:5000"
+        - "20007:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects7/:/data/objects:rw
@@ -308,6 +332,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.25
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
 
   datacontainer8:
     image: dynostore/datacontainer:v1
@@ -315,7 +343,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20008:5000"
+        - "20008:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects8/:/data/objects:rw
@@ -325,6 +353,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.26
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
 
   datacontainer9:
     image: dynostore/datacontainer:v1
@@ -332,7 +364,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20009:5000"
+        - "20009:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects9/:/data/objects:rw
@@ -342,6 +374,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.27
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
 
   datacontainer10:
     image: dynostore/datacontainer:v1
@@ -349,7 +385,7 @@ services:
       context: ./datacontainer
       dockerfile: Dockerfile
     ports:
-        - "20010:5000"
+        - "20010:80"
     volumes:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects10/:/data/objects:rw
@@ -359,6 +395,10 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.28
+    command: >
+      gunicorn --reload --bind 0.0.0.0:80 app:app
+             --workers 4 --threads 2
+             --access-logfile '-' --error-logfile '-' --log-level debug
          
 volumes:  
   psql-data-vc:

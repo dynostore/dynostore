@@ -25,6 +25,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 
 db.init_app(app)
 
+# Create tables on app startup (safe if using SQLite or no migrations)
+with app.app_context():
+    db.create_all()
+
 # === Flask-Login setup ===
 login_manager = LoginManager()
 login_manager.init_app(app)

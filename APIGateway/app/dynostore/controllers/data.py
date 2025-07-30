@@ -11,6 +11,7 @@ import subprocess
 
 from dynostore.controllers.catalogs import CatalogController
 from dynostore.datamanagement.reliability import ida
+from dynostore.datamanagement.reliability import encoder
 from drex.utils.load_data import RealRecords
 from drex.utils.prediction import Predictor
 from drex.schedulers.algorithm4 import algorithm4, system_saturation
@@ -38,6 +39,8 @@ class DataController:
 
     @staticmethod
     def download_chunk(route, key_object, id):
+        print(route, flush=True)
+        id = int(route["chunk"]["name"].split("_")[0].replace("c","")) - 1 
         url = DataController._http_url(route['route'])
         resp = requests.get(url)
         resp.raise_for_status()
@@ -51,15 +54,16 @@ class DataController:
         temp_dir = os.path.join(os.getcwd(), '.temp/downloads')
         os.makedirs(temp_dir, exist_ok=True)
 
-        chunk_path = os.path.join(temp_dir, f"{key_object}D{id}")
+        chunk_path = os.path.join(temp_dir, f"{key_object}.share{id}")
         with open(chunk_path, 'wb') as f:
             f.write(data)
         print(f"Chunk {id} downloaded and saved to {chunk_path}", flush=True)
 
-        return chunk_path
+        return {"chunk_path":chunk_path,"id":id}
 
     @staticmethod
     def pull_data(request, token_user, key_object, metadata_service, pubsub_service):
+        print("Pulling data", flush=True)
         url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
         resp = requests.get(url)
         if resp.status_code >= 400:
@@ -71,6 +75,7 @@ class DataController:
         metadata_object = resp.json()['data']['file']
 
         print(metadata_object, flush=True)
+        print(routes, flush=True)
 
         # Prepare input arguments as (route, key_object) pairs
         args = [(route, key_object, id) for id, route in enumerate(routes)]
@@ -79,36 +84,44 @@ class DataController:
             results = pool.starmap(DataController.download_chunk, args)
 
         if len(results) > 1:
+            pass
             # Reconstruct the object from the downloaded chunks
             reconstructed_path = os.path.join('.temp/downloads', f"{key_object}")
+            fragments_paths = [str(chunk["chunk_path"]) for i, chunk in enumerate(results)]
+            ids = [int(chunk["id"]) for i, chunk in enumerate(results)]
+            print(ids, flush=True)
+            print(fragments_paths, flush=True)
+            encoder.decode_file(fragments_paths=fragments_paths, fragment_indices=ids, 
+                                    output_file=reconstructed_path, k=2, n=5, original_length=metadata_object["size"])
 
-            base_args = ["/app/dynostore/datamanagement/reliability/IDA/Rec",
-                         reconstructed_path , "16"]
-            for i, chunk_path in enumerate(results):
-                base_args.append(str(chunk_path))
 
-            print("Base args:", base_args, flush=True)
+            #base_args = ["/app/dynostore/datamanagement/reliability/IDA/Rec",
+            #             reconstructed_path , "16"]
+            #for i, chunk_path in enumerate(results):
+            #    base_args.append(str(chunk_path))
+
+            #print("Base args:", base_args, flush=True)
 
             # Call the C code to split the bytes
-            proc = subprocess.Popen(
-                base_args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
+            #proc = subprocess.Popen(
+            #    base_args,
+            #    stdout=subprocess.PIPE,
+            #    stderr=subprocess.PIPE
+            #)
 
-            stdout_data, stderr_data = proc.communicate()
-            print("STDOUT:", stdout_data.decode('utf-8'), flush=True)
-            print("STDERR:", stderr_data.decode('utf-8'), flush=True)
-            exit_code = proc.returncode
+            #stdout_data, stderr_data = proc.communicate()
+            #print("STDOUT:", stdout_data.decode('utf-8'), flush=True)
+            #print("STDERR:", stderr_data.decode('utf-8'), flush=True)
+            #exit_code = proc.returncode
 
-            if exit_code != 0:
-                print(
-                    f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
-                print(f"Exit code: {exit_code}", flush=True)
+            #if exit_code != 0:
+            #    print(
+            #        f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
+                #print(f"Exit code: {exit_code}", flush=True)
 
-                # Raise an exception or handle the error as needed
-                raise RuntimeError(
-                    f"IDA Dis command failed with exit code {exit_code}")
+            #    # Raise an exception or handle the error as needed
+            #    raise RuntimeError(
+            #        f"IDA Dis command failed with exit code {exit_code}")
 
             # Read the reconstructed object from the file
             with open(reconstructed_path, 'rb') as f:
@@ -152,30 +165,29 @@ class DataController:
         #     DataController.predictor
         # )
 
-        current_path = os.getcwd()
-        print(current_path, flush=True)
+        encoder.encode_file(path_object, k, n, os.path.dirname(path_object), size)
 
         # Call the C code to split the bytes
-        proc = subprocess.Popen(
-            ["/app/dynostore/datamanagement/reliability/IDA/Dis",
-                str(n), str(k), str(16), str(path_object)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+        # proc = subprocess.Popen(
+        #     ["/app/dynostore/datamanagement/reliability/IDA/Dis",
+        #         str(n), str(k), str(16), str(path_object)],
+        #     stdout=subprocess.PIPE,
+        #     stderr=subprocess.PIPE
+        # )
 
-        stdout_data, stderr_data = proc.communicate()
-        print("STDOUT:", stdout_data.decode('utf-8'), flush=True)
-        print("STDERR:", stderr_data.decode('utf-8'), flush=True)
-        exit_code = proc.returncode
+        #stdout_data, stderr_data = proc.communicate()
+        #print("STDOUT:", stdout_data.decode('utf-8'), flush=True)
+        #print("STDERR:", stderr_data.decode('utf-8'), flush=True)
+        #exit_code = proc.returncode
 
-        if exit_code != 0:
-            print(
-                f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
-            print(f"Exit code: {exit_code}", flush=True)
+        #if exit_code != 0:
+        #    print(
+        #        f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
+        #    print(f"Exit code: {exit_code}", flush=True)
 
             # Raise an exception or handle the error as needed
-            raise RuntimeError(
-                f"IDA Dis command failed with exit code {exit_code}")
+        #    raise RuntimeError(
+        #        f"IDA Dis command failed with exit code {exit_code}")
 
         # subprocess.run(["IDA", "Dis", str(n), str(k), str(16), str(path_object)], check=True)
 
@@ -194,6 +206,8 @@ class DataController:
         files = request.files
         request_json = json.loads(files['json'].read().decode('utf-8'))
         request_bytes = files['data'].read()
+
+        print("BYTES", len(request_bytes), flush=True)
 
         # Write the object to FS in a temporary location
         temp_dir = os.path.join(os.getcwd(), '.temp')
@@ -239,7 +253,8 @@ class DataController:
         else:
             for i, node in enumerate(nodes):
                 url = DataController._http_url(node['route'])
-                data = DataController._load_chunk(f"{object_path}D{i}")
+                print("Pushing ", i, "URL", url, flush=True)
+                data = DataController._load_chunk(f"{object_path}.{i}_{n}.fec")
                 upload_resp = requests.put(url, data=data)
                 if upload_resp.status_code != 201:
                     return upload_resp.json(), upload_resp.status_code

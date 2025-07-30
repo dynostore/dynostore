@@ -118,7 +118,7 @@ class Server extends Model
             $url = $chunks[$i]["url"];
             $response = Http::get($url . "/health");
             if($response->status() == 200){
-                $result[] = array("route" => $url . "/objects/" . $chunks[$i]["keyfile"] . $chunks[$i]["keychunk"] . "/$tokenuser", "server" => $url);
+                $result[] = array("chunk" => $chunks[$i], "route" => $url . "/objects/" . $chunks[$i]["keyfile"] . $chunks[$i]["keychunk"] . "/$tokenuser", "server" => $url);
                 $i++;
             }        
         }
