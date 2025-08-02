@@ -1,404 +1,353 @@
 import os
-from flask import Flask, jsonify, request, render_template, redirect, flash, url_for, render_template_string, session
-from flask_login import LoginManager, login_user, logout_user, UserMixin
-
-
+import time
+import asyncio
 import requests
 from uuid import uuid4
-import time
-import json
+
+from quart import Quart, jsonify, request, render_template, redirect, url_for, session
+from quart_auth import AuthUser, login_required, login_user, logout_user, current_user
+from quart_sqlalchemy import SQLAlchemyConfig
+from quart_sqlalchemy.framework import QuartSQLAlchemy
+from sqlalchemy.orm import Mapped, mapped_column
+
+
 from dynostore.controllers.auth import AuthController
-from dynostore.decorators.token import validateToken, validateAdminToken
 from dynostore.controllers.catalogs import CatalogController
 from dynostore.controllers.data import DataController
 from dynostore.controllers.datacontainer import DataContainerController
-from dynostore.models.access_token import AccessToken
+from dynostore.decorators.token import validateToken, validateAdminToken
 
-from dynostore.models.user import User
-from dynostore.models.device_code import DeviceCode
 from dynostore.db import db
 
-app = Flask(__name__)
-app.config["DEBUG"] = True
+app = Quart(__name__)
 app.secret_key = 'supersecret'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
+app.config["DEBUG"] = True
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024
 
-db.init_app(app)
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 
-# Create tables on app startup (safe if using SQLite or no migrations)
-with app.app_context():
-    db.create_all()
+#from hypercorn.config import Config
+#print("Starting with body limit:", Config().body_limit, flush=True)
 
-# === Flask-Login setup ===
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
+db = QuartSQLAlchemy(
+  config=SQLAlchemyConfig(
+      binds=dict(
+          default=dict(
+              engine=dict(
+                  url="sqlite:///db.sqlite",
+                  echo=True,
+                  connect_args=dict(check_same_thread=False),
+              ),
+              session=dict(
+                  expire_on_commit=False,
+              ),
+          )
+      )
+  ),
+  app=app,
+)
+
+
+class DeviceCode(db.Model):
+    id: Mapped[int] = mapped_column(primary_key=True)
+    device_code: Mapped[str] = mapped_column(unique=True, nullable=False)
+    user_code: Mapped[str] = mapped_column(unique=True, nullable=False)
+    expires_at: Mapped[int] = mapped_column(nullable=False)
+    interval: Mapped[int] = mapped_column(default=5)
+    verified: Mapped[bool] = mapped_column(default=False)
+    username: Mapped[str] = mapped_column(nullable=True)
+
+class AccessToken(db.Model):
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(unique=True, nullable=False)
+    username: Mapped[str] = mapped_column(nullable=False)
+    expires_at: Mapped[int] = mapped_column(nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "token": self.token,
+            "username": self.username,
+            "expires_at": self.expires_at
+        }
+
+class User(db.Model):
+    __tablename__ = 'users'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(unique=True)
+    access_token: Mapped[str] = mapped_column(nullable=False)
+    user_token: Mapped[str] = mapped_column(nullable=False)
+    api_key: Mapped[str] = mapped_column(nullable=False)
+
+    def get_id(self):
+        return str(self.id)
+
+    @property
+    def is_authenticated(self):
+        return True  # Flask-Login needs this
+    
+    def to_dict(self):
+        return {
+            "username": self.username,
+            "access_token": self.access_token,
+            "user_token": self.user_token,
+            "api_key": self.api_key
+        }
 
 AUTH_HOST = os.getenv('AUTH_HOST')
 PUB_SUB_HOST = os.getenv('PUB_SUB_HOST')
 METADATA_HOST = os.getenv('METADATA_HOST')
 PUBLIC_IP = os.getenv('PUBLIC_IP', 'localhost')
 
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+db.create_all()
 
 
-# === Endpoint: CLI gets a device code ===
-
-@app.route("/device/code", methods=["POST"])
-def device_code():
-    device_code = str(uuid4())
-    user_code = str(uuid4())[:8].upper()
-    expires_at = int(time.time()) + 600
-
-    dc = DeviceCode(
-        device_code=device_code,
-        user_code=user_code,
-        expires_at=expires_at
-    )
-
-    db.session.add(dc)
-    db.session.commit()
-
-    return jsonify({
-        "device_code": device_code,
-        "user_code": user_code,
-        "verification_uri": f"http://{PUBLIC_IP}/device",
-        "expires_in": 600,
-        "interval": 5
-    })
-
-# === Endpoint: User visits this to enter the code ===
-
+# @app.before_serving
+# async def startup():
+#     with app.app_context():
+#         db.create_all()
 
 @app.route("/device", methods=["GET", "POST"])
-def device_entry():
+async def device_entry():
     if request.method == "GET":
-        return render_template("device_verification.html")
+        return await render_template("device_verification.html")
 
-    user_code = request.form.get("user_code")
-    device = DeviceCode.query.filter_by(user_code=user_code).first()
+    form = await request.form
+    user_code = form.get("user_code")
+
+    with app.app_context():
+        device = DeviceCode.query.filter_by(user_code=user_code).first()
 
     if not device:
         return "Invalid code", 400
 
     session["device_code"] = device.device_code
-
-    return render_template("login.html", device_code=device.device_code)
-
-
-# === Endpoint: CLI polls for token ===
-
+    return await render_template("login.html", device_code=device.device_code)
 
 @app.route("/token/validate", methods=["POST"])
-def verify_token():
-    data = request.json or request.form
+async def verify_token():
+    data = await request.get_json() or await request.form
     token = data.get("token")
 
     if not token:
         return jsonify({"error": "missing_token"}), 400
 
-    token_entry = AccessToken.query.filter_by(token=token).first()
-    now = int(time.time())
-    if token_entry and token_entry.expires_at > now:
-        # Token is valid, get all user information
-        # Get from remote
-
-        print("USER", token_entry.to_dict(), flush=True)
-        user = User.query.filter_by(username=token_entry.username).first()
-        print("USER", user.to_dict(), flush=True)
-        if not user:
-            return jsonify({"error": "user_not_found"}), 404
-
-        return jsonify(user.to_dict()), 200
+    with app.app_context():
+        token_entry = AccessToken.query.filter_by(token=token).first()
+        now = int(time.time())
+        if token_entry and token_entry.expires_at > now:
+            user = User.query.filter_by(username=token_entry.username).first()
+            if not user:
+                return jsonify({"error": "user_not_found"}), 404
+            return jsonify(user.to_dict()), 200
 
     return jsonify({"error": "invalid_or_expired_token"}), 401
 
-# === Protected API example ===
-
-
 @app.route("/me")
-def profile():
+async def profile():
     auth = request.headers.get("Authorization")
     if not auth or not auth.startswith("Bearer "):
         return jsonify({"error": "missing_token"}), 401
 
     token = auth.split()[1]
-    token_entry = AccessToken.query.filter_by(token=token).first()
-    now = int(time.time())
-    if not token_entry or token_entry.expires_at <= now:
-        return jsonify({"error": "invalid_or_expired_token"}), 401
+    with app.app_context():
+        token_entry = AccessToken.query.filter_by(token=token).first()
+        now = int(time.time())
+        if not token_entry or token_entry.expires_at <= now:
+            return jsonify({"error": "invalid_or_expired_token"}), 401
 
     return jsonify({"username": token_entry.username, "token": token})
 
-
-# Authentication service routes
 @app.route('/auth/organization/<name>/<acronym>', methods=["PUT"])
-def createOrganization(name, acronym):
-    """
-    Route to create an organization
-    """
+async def createOrganization(name, acronym):
+    data = await request.get_json()
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy'
-    data = {"option": "NEW", "fullname": name, "acronym": acronym,
-            "fathers_token": request.json['fathers_token']}
-    results = requests.post(url_service, json=data)
+    payload = {"option": "NEW", "fullname": name, "acronym": acronym, "fathers_token": data['fathers_token']}
+    results = requests.post(url_service, json=payload)
     return jsonify(results.json()), results.status_code
 
-
 @app.route('/auth/organization/<name>/<acronym>', methods=["GET"])
-def getOrganization(name, acronym):
-    """
-    Route to get the metadata of an organization
-    """
+async def getOrganization(name, acronym):
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy'
     data = {"option": "CHECK", "fullname": name, "acronym": acronym}
     results = requests.post(url_service, json=data)
     return jsonify(results.json()), results.status_code
 
-
 @app.route('/auth/organization', methods=["GET"])
-def getOrganizations():
-    """
-    Route to get the list of organizations
-    """
+async def getOrganizations():
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy/all/'
     results = requests.get(url_service)
     return jsonify(results.json()), results.status_code
 
-
 @app.route('/auth/user', methods=["POST"])
-def createUser():
-    """
-    Route to regist an user
-    """
+async def createUser():
+    data = await request.get_json()
     url_service = f'http://{AUTH_HOST}/auth/v1/users/create'
-    data = {
+    payload = {
         "option": "NEW",
-        "email": request.json['email'],
-        "password": request.json['password'],
-        "username": request.json['username'],
-        "tokenorg": request.json['tokenorg']
+        "email": data['email'],
+        "password": data['password'],
+        "username": data['username'],
+        "tokenorg": data['tokenorg']
     }
-    results = requests.post(url_service, json=data)
+    results = requests.post(url_service, json=payload)
     return jsonify(results.json()), results.status_code
 
-
 @app.route('/auth/user/<tokenuser>', methods=["GET"])
-def validateUsertToken(tokenuser):
-    """
-    Route to get the metadata of an user
-    """
+async def validateUsertToken(tokenuser):
     return AuthController.validateUsertToken(tokenuser, AUTH_HOST)
 
-
-# === Routes ===
 @app.route("/auth/user/login", methods=["GET", "POST"])
-def login():
-
+async def login():
     if request.method == "GET":
-        return render_template("login.html")
+        return await render_template("login.html")
 
-    inputs = None
-    if request.is_json:
-        inputs = request.json
-    else:
-        inputs = request.form
+    inputs = await request.get_json() or await request.form
 
-    if not "username" in inputs or not "password" in inputs:
+    if "username" not in inputs or "password" not in inputs:
         return "Missing username or password", 400
 
-    payload = {
-        "user": inputs["username"],
-        "password": inputs["password"]
-    }
-    resp = requests.post(
-        f"http://{AUTH_HOST}/auth/v1/users/login/", json=payload)
+    payload = {"user": inputs["username"], "password": inputs["password"]}
+    resp = requests.post(f"http://{AUTH_HOST}/auth/v1/users/login/", json=payload)
 
     if resp.status_code == 200:
         user_data = resp.json()["data"]
 
-        if "type" in request.args and request.args["type"] == "device":
-            device_code = request.form.get("device_code")
-            device = DeviceCode.query.filter_by(
-                device_code=device_code).first()
+        if request.args.get("type") == "device":
+            form = await request.form
+            device_code = form.get("device_code")
+            with app.app_context():
+                device = DeviceCode.query.filter_by(device_code=device_code).first()
             if not device:
                 return "Invalid session", 400
 
             token = str(uuid4())
-            expires_at = int(time.time()) + 3600  # Token valid for 1 hour
+            expires_at = int(time.time()) + 3600
 
             device.verified = True
             device.username = inputs["username"]
-            db.session.add(AccessToken(
-                token=token, username=inputs["username"], expires_at=expires_at))
-            db.session.commit()
-
-            # Store user credentials
-            user = User.query.filter_by(username=user_data["username"]).first()
-
-            if not user:
-                user = User(
-                    username=user_data["username"],
-                    access_token=user_data["access_token"],
-                    user_token=user_data["tokenuser"],
-                    api_key=user_data["apikey"]
-                )
-                db.session.add(user)
-                db.session.commit()
-            elif user.user_token != user_data["tokenuser"]:
-                user.access_token = user_data["access_token"]
-                user.user_token = user_data["tokenuser"]
-                user.api_key = user_data["apikey"]
+            with app.app_context():
+                db.session.add(AccessToken(token=token, username=inputs["username"], expires_at=expires_at))
                 db.session.commit()
 
-            return render_template("auth_success.html", token=token)
+            with app.app_context():
+                user = User.query.filter_by(username=user_data["username"]).first()
+                if not user:
+                    user = User(username=user_data["username"], access_token=user_data["access_token"],
+                                user_token=user_data["tokenuser"], api_key=user_data["apikey"])
+                    db.session.add(user)
+                elif user.user_token != user_data["tokenuser"]:
+                    user.access_token = user_data["access_token"]
+                    user.user_token = user_data["tokenuser"]
+                    user.api_key = user_data["apikey"]
+                db.session.commit()
 
-        # If no next parameter, just return the user data)
+            return await render_template("auth_success.html", token=token)
+
         return resp.json(), 200
 
     return "Invalid credentials", 401
 
-
 @app.route("/logout")
-def logout():
+async def logout():
     logout_user()
     return redirect("/")
 
-
-# PubSub service routes
-
 @app.route('/pubsub/<tokenuser>/catalog/<catalogname>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
-def createCatalog(tokenuser, catalogname):
-    """
-    Route to create a catalog
-    """
-    # validate inputs
-    dispersemode = request.json['dispersemode'] if 'dispersemode' in request.json else "SINGLE"
-    encryption = request.json['encryption'] if 'encryption' in request.json else 0
-    fathers_token = request.json['fathers_token'] if 'fathers_token' in request.json else "/"
-    processed = request.json['processed'] if 'processed' in request.json else 0
-
+async def createCatalog(tokenuser, catalogname):
+    data = await request.get_json()
     return CatalogController.createOrGetCatalog(
-        request,
-        PUB_SUB_HOST,
-        catalogname,
-        tokenuser,
-        dispersemode,
-        encryption,
-        fathers_token,
-        processed
+        request, PUB_SUB_HOST, catalogname, tokenuser,
+        data.get('dispersemode', "SINGLE"),
+        data.get('encryption', 0),
+        data.get('fathers_token', "/"),
+        data.get('processed', 0)
     )
-
 
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
-def getCatalog(tokenuser, catalog):
-    """
-    Route to get the metadata of a catalog
-    """
-    print(catalog, flush=True)
+async def getCatalog(tokenuser, catalog):
     return CatalogController.getCatalog(PUB_SUB_HOST, catalog, tokenuser)
-
 
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)
-def deleteCatalog(tokenuser, catalog):
-    """
-    Route to delete a catalog
-    """
+async def deleteCatalog(tokenuser, catalog):
     url_service = f'http://{PUB_SUB_HOST}/catalog/{catalog}/?tokenuser={tokenuser}'
     results = requests.delete(url_service)
     return jsonify(results.json()), results.status_code
 
-
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>/list', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
-def listCatalogFiles(tokenuser, catalog):
-    """
-    List files in catalog
-    """
+async def listCatalogFiles(tokenuser, catalog):
     return CatalogController.listFilesInCatalog(PUB_SUB_HOST, catalog, tokenuser)
 
-
-# Storage service routes
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
-def downloadObject(tokenuser, keyobject):
-    """
-    Route to download an object
-    """
-    return DataController.pull_data(request, tokenuser, keyobject, METADATA_HOST, PUB_SUB_HOST)
-
-# DREX Experiments (temporal functions)
-
+async def downloadObject(tokenuser, keyobject):
+    return await DataController.pull_data(tokenuser, keyobject, METADATA_HOST, PUB_SUB_HOST)
 
 @app.route('/storage/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
-def uploadObjectDREX(tokenuser, catalog, keyobject):
-    # print("NEW", tokenuser, catalog, keyobject, flush=True)
-    return DataController.push_data(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
+async def uploadObjectDREX(tokenuser, catalog, keyobject):
+    return await DataController.push_data(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
 
+@app.route('/metadata/<tokenuser>/<keyobject>', methods=["POST"])
+@validateToken(auth_host=AUTH_HOST)
+async def upload_metadata(tokenuser, keyobject):
+    return await DataController.upload_metadata(request, tokenuser, keyobject)
+
+@app.route('/upload/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
+@validateToken(auth_host=AUTH_HOST)
+async def upload_data(tokenuser, catalog, keyobject):
+    return await DataController.upload_data(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
 
 @app.route('/storage/<tokenuser>/<keyobject>/exists', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
-def existsObject(tokenuser, keyobject):
-    """
-    Route to check if an object exists
-    """
+async def existsObject(tokenuser, keyobject):
     return DataController.exists_object(request, tokenuser, keyobject, METADATA_HOST)
-
 
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)
-def deleteObject(tokenuser, keyobject):
-    """
-    Route to delete an object
-    """
+async def deleteObject(tokenuser, keyobject):
     return DataController.delete_object(request, tokenuser, keyobject, METADATA_HOST)
-
-# Data containers management
-
 
 @app.route('/datacontainer/<admintoken>', methods=["POST"])
 @validateAdminToken(auth_host=AUTH_HOST)
-def registDataContainer(admintoken):
-    """
-    Route to regist a data container on the metadata service
-    """
-    return DataContainerController.regist(request, admintoken, METADATA_HOST)
-
+async def registDataContainer(admintoken):
+    return await DataContainerController.regist(request, admintoken, METADATA_HOST)
 
 @app.route('/datacontainer/<admintoken>/all', methods=["DELETE"])
 @validateAdminToken(auth_host=AUTH_HOST)
-def deleteAllDCs(admintoken):
-    return DataContainerController.delete_all(request, admintoken, METADATA_HOST)
-
-# Development
-
+async def deleteAllDCs(admintoken):
+    return await DataContainerController.delete_all(request, admintoken, METADATA_HOST)
 
 @app.route("/statistic/<admintoken>", methods=["GET"])
 @validateAdminToken(auth_host=AUTH_HOST)
-def statistics(admintoken):
+async def statistics(admintoken):
     url_service = f"http://{METADATA_HOST}/api/servers/{admintoken}"
-    # print(url_service, flush=True)
     results = requests.get(url_service)
-    # print(results.text, flush=True)
     return jsonify(results.json()), results.status_code
-
 
 @app.route("/clean/<admintoken>", methods=["GET"])
 @validateAdminToken(auth_host=AUTH_HOST)
-def clean(admintoken):
+async def clean(admintoken):
     url_service = f'http://{METADATA_HOST}/api/clean'
     results = requests.get(url_service)
-    print(results.text, flush=True)
     return jsonify(results.json()), results.status_code
 
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=80)
+if __name__ == "__main__":
+    import hypercorn.asyncio
+    # from hypercorn.config import Config
+
+    # config = Config()
+    # config.bind = ["0.0.0.0:80"]
+    # config.worker_class = "asyncio"
+    print("Starting with body limit:", Config().body_limit, flush=True)
+    asyncio.run(hypercorn.asyncio.serve(app, config))
+    #asyncio.run(app.run_task())
+
+    #from hypercorn.config import Config
+    #print("Starting with body limit:", Config().body_limit, flush=True)
+    #app.run(host='0.0.0.0', port=80)

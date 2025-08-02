@@ -1,4 +1,4 @@
-from dynostore.db import db
+from dynostore import db
 
 class AccessToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)

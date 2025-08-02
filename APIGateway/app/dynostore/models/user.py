@@ -1,6 +1,6 @@
 
 from flask_login import UserMixin
-from dynostore.db import db
+from dynostore import db
 
 
 class User(db.Model, UserMixin):

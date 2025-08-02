@@ -9,7 +9,7 @@ RUN pip install -r requirements.txt
 #RUN pip install git+https://github.com/dynostore/D-rex.git
 
 # Install Gunicorn
-RUN pip install gunicorn
+RUN pip install hypercorn
 
 ADD app /app
 WORKDIR /app
@@ -23,4 +23,4 @@ WORKDIR /app
 EXPOSE 80
 
 # Run Gunicorn server
-CMD ["gunicorn", "--bind", "0.0.0.0:80", "main:app", "--workers", "4", "--threads", "2", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info"]
+CMD ["hypercorn", "main:app", "--bind", "0.0.0.0:80"]

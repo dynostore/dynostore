@@ -8,3 +8,7 @@ sqlalchemy
 Flask-SQLAlchemy
 flask_login
 zfec
+aiohttp
+quart
+quart-auth
+aiofiles

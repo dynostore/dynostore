@@ -37,11 +37,7 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.11
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 main:app
-             --workers 95 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
-  
+    command: tail -f /dev/null
 
   metadata_server:
     image: nginx:1.17-alpine

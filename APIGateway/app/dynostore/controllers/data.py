@@ -1,240 +1,408 @@
 import requests
 import json
-import pickle
-import multiprocessing
-import time
+import tempfile
+import asyncio
+import aiohttp
+import os
 import numpy as np
 import sys
-import os
-import subprocess
+import hashlib
+import time
+import math
+import threading
+import shutil
+import aiofiles
 
+from io import BytesIO
+from zfec import Encoder, Decoder
 
 from dynostore.controllers.catalogs import CatalogController
-from dynostore.datamanagement.reliability import ida
 from dynostore.datamanagement.reliability import encoder
 from drex.utils.load_data import RealRecords
 from drex.utils.prediction import Predictor
-from drex.schedulers.algorithm4 import algorithm4, system_saturation
-
 
 class DataController:
     predictor = Predictor()
     real_records = RealRecords(dir_data="data/")
+    catalog_cache = {}
+    CHUNK_SIZE = 64 * 1024  # 64KB
+
+    @staticmethod
+    def evict_cache(max_files=100):
+        cache_dir = ".cache"
+        entries = []
+        for root, _, files in os.walk(cache_dir):
+            for name in files:
+                path = os.path.join(root, name)
+                try:
+                    mtime = os.path.getmtime(path)
+                    entries.append((mtime, path))
+                except FileNotFoundError:
+                    continue
+        if len(entries) > max_files:
+            entries.sort()
+            for _, path in entries[:-max_files]:
+                try:
+                    os.remove(path)
+                except Exception:
+                    continue
 
     @staticmethod
     def _http_url(route):
         return route if route.startswith("http") else f"http://{route}"
 
     @staticmethod
-    def delete_object(request, token_user, key_object, metadata_service):
-        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
-        resp = requests.delete(url)
-        return resp.json(), resp.status_code
+    def _get_cache_path(token_user, key_object):
+        safe_user = hashlib.sha1(token_user.encode()).hexdigest()
+        cache_dir = os.path.join(".cache", safe_user)
+        os.makedirs(cache_dir, exist_ok=True)
+        return os.path.join(cache_dir, f"{key_object}.bin")
 
     @staticmethod
-    def exists_object(request, token_user, key_object, metadata_service):
+    async def delete_object(token_user, key_object, metadata_service):
+        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
+        async with aiohttp.ClientSession() as session:
+            async with session.delete(url) as resp:
+                return await resp.json(), resp.status
+
+    @staticmethod
+    async def exists_object(token_user, key_object, metadata_service):
         url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}/exists"
-        resp = requests.get(url)
-        return resp.json(), resp.status_code
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                return await resp.json(), resp.status
 
     @staticmethod
-    def download_chunk(route, key_object, id):
-        print(route, flush=True)
-        id = int(route["chunk"]["name"].split("_")[0].replace("c","")) - 1 
+    async def download_chunk(session, route, key_object):
+        chunk_id = 0
+        if "chunk" in route:
+            chunk_id = int(route["chunk"]["name"].split("_")[0].replace("c", "")) - 1
         url = DataController._http_url(route['route'])
-        resp = requests.get(url)
-        resp.raise_for_status()
-
-        if resp.status_code != 200:
-            raise Exception(
-                f"Failed to download chunk from {url}: {resp.status_code}")
-
-        # Save the content to a temporary file
-        data = resp.content
-        temp_dir = os.path.join(os.getcwd(), '.temp/downloads')
-        os.makedirs(temp_dir, exist_ok=True)
-
-        chunk_path = os.path.join(temp_dir, f"{key_object}.share{id}")
-        with open(chunk_path, 'wb') as f:
-            f.write(data)
-        print(f"Chunk {id} downloaded and saved to {chunk_path}", flush=True)
-
-        return {"chunk_path":chunk_path,"id":id}
+        async with session.get(url) as resp:
+            resp.raise_for_status()
+            data = await resp.read()
+        return chunk_id, data
 
     @staticmethod
-    def pull_data(request, token_user, key_object, metadata_service, pubsub_service):
-        print("Pulling data", flush=True)
-        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
-        resp = requests.get(url)
-        if resp.status_code >= 400:
-            return resp.json(), resp.status_code
+    async def pull_data(token_user, key_object, metadata_service, force_refresh=False):
+        decode_start = time.perf_counter_ns()
+
+        cache_path = DataController._get_cache_path(token_user, key_object)
+        if not force_refresh and os.path.exists(cache_path):
+            print(f"Serving {key_object} from local cache", flush=True)
+            with open(cache_path, "rb") as f:
+                obj = f.read()
+            return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": False, "time_decode": 0}
+
+        # Check for pending marker
+        object_path = os.path.join(".temp", key_object)
+        marker_path = f"{object_path}.pending"
+        if os.path.exists(marker_path):
+            print("PENDING")
+            object_path = marker_path.replace(".pending", "")
+            if os.path.exists(object_path):
+                with open(object_path, "rb") as f:
+                    obj = f.read()
+                return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": False, "time_decode": 0}    
         
-        print(f"Response from metadata service: {resp.json()}", flush=True)
+        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status >= 400:
+                    return await resp.json(), resp.status
+                result = await resp.json()
 
-        routes = resp.json()['data']['routes']
-        metadata_object = resp.json()['data']['file']
+        routes = result['data']['routes']
+        metadata_object = result['data']['file']
 
-        print(metadata_object, flush=True)
-        print(routes, flush=True)
+        async with aiohttp.ClientSession() as session:
+            tasks = [DataController.download_chunk(session, route, key_object) for route in routes]
+            results = await asyncio.gather(*tasks)
 
-        # Prepare input arguments as (route, key_object) pairs
-        args = [(route, key_object, id) for id, route in enumerate(routes)]
-        print(args, flush=True)
-        with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
-            results = pool.starmap(DataController.download_chunk, args)
-
-        if len(results) > 1:
-            pass
-            # Reconstruct the object from the downloaded chunks
-            reconstructed_path = os.path.join('.temp/downloads', f"{key_object}")
-            fragments_paths = [str(chunk["chunk_path"]) for i, chunk in enumerate(results)]
-            ids = [int(chunk["id"]) for i, chunk in enumerate(results)]
-            print(ids, flush=True)
-            print(fragments_paths, flush=True)
-            encoder.decode_file(fragments_paths=fragments_paths, fragment_indices=ids, 
-                                    output_file=reconstructed_path, k=2, n=5, original_length=metadata_object["size"])
-
-
-            #base_args = ["/app/dynostore/datamanagement/reliability/IDA/Rec",
-            #             reconstructed_path , "16"]
-            #for i, chunk_path in enumerate(results):
-            #    base_args.append(str(chunk_path))
-
-            #print("Base args:", base_args, flush=True)
-
-            # Call the C code to split the bytes
-            #proc = subprocess.Popen(
-            #    base_args,
-            #    stdout=subprocess.PIPE,
-            #    stderr=subprocess.PIPE
-            #)
-
-            #stdout_data, stderr_data = proc.communicate()
-            #print("STDOUT:", stdout_data.decode('utf-8'), flush=True)
-            #print("STDERR:", stderr_data.decode('utf-8'), flush=True)
-            #exit_code = proc.returncode
-
-            #if exit_code != 0:
-            #    print(
-            #        f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
-                #print(f"Exit code: {exit_code}", flush=True)
-
-            #    # Raise an exception or handle the error as needed
-            #    raise RuntimeError(
-            #        f"IDA Dis command failed with exit code {exit_code}")
-
-            # Read the reconstructed object from the file
-            with open(reconstructed_path, 'rb') as f:
-                obj = f.read()
+        if metadata_object["required_chunks"] == 1:
+            obj = results[0][1]
         else:
-            # If only one chunk, read it directly
-            reconstructed_path = os.path.join('.temp/downloads', f"{key_object}D0")
-            # Read the reconstructed object from the file
-            with open(reconstructed_path, 'rb') as f:
-                obj = f.read()
+            sorted_results = sorted(results, key=lambda x: x[0])
+            chunk_data = [data for _, data in sorted_results[:metadata_object['required_chunks']]]
+            chunk_indices = [idx for idx, _ in sorted_results[:metadata_object['required_chunks']]]
+            k = metadata_object['required_chunks']
+            n = metadata_object['chunks']
+            original_size = metadata_object.get('original_size')
+            decoder = Decoder(k, n)
+            recovered_blocks = decoder.decode(chunk_data, chunk_indices)
+            obj = b''.join(recovered_blocks)
+            if original_size is not None:
+                obj = obj[:original_size]
 
+        with open(cache_path, "wb") as f:
+            f.write(obj)
+        os.utime(cache_path, None)
 
-        return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": metadata_object['is_encrypted']}
-
-    @staticmethod
-    def _resilient_distribution(path_object, size, token_user, metadata_service):
-        server_url = f"http://{metadata_service}/api/servers/{token_user}"
-        servers = requests.get(server_url).json()
-        print(f"Servers: {servers}", flush=True)
-        num_nodes = len(servers)
-        node_sizes = [int(s['storage']) for s in servers]
-
-        reliability_nodes = np.random.rand(num_nodes) * (0.3 - 0.01) + 0.01
-        bandwidths = [10] * num_nodes
-        file_size_mb = size / 1024 / 1024
-
-        n, k = None, None
-        nodes, n, k, _ = None, 5, 2, None  # Placeholder values for testing
-        # algorithm4(
-        #     num_nodes,
-        #     reliability_nodes,
-        #     bandwidths,
-        #     0.99,
-        #     file_size_mb,
-        #     DataController.real_records,
-        #     node_sizes,
-        #     max(node_sizes) / 1024 / 1024,
-        #     sys.maxsize,
-        #     system_saturation,
-        #     sum(node_sizes) / 1024 / 1024,
-        #     DataController.predictor
-        # )
-
-        encoder.encode_file(path_object, k, n, os.path.dirname(path_object), size)
-
-        # Call the C code to split the bytes
-        # proc = subprocess.Popen(
-        #     ["/app/dynostore/datamanagement/reliability/IDA/Dis",
-        #         str(n), str(k), str(16), str(path_object)],
-        #     stdout=subprocess.PIPE,
-        #     stderr=subprocess.PIPE
-        # )
-
-        #stdout_data, stderr_data = proc.communicate()
-        #print("STDOUT:", stdout_data.decode('utf-8'), flush=True)
-        #print("STDERR:", stderr_data.decode('utf-8'), flush=True)
-        #exit_code = proc.returncode
-
-        #if exit_code != 0:
-        #    print(
-        #        f"Error in subprocess: {stderr_data.decode('utf-8')}", flush=True)
-        #    print(f"Exit code: {exit_code}", flush=True)
-
-            # Raise an exception or handle the error as needed
-        #    raise RuntimeError(
-        #        f"IDA Dis command failed with exit code {exit_code}")
-
-        # subprocess.run(["IDA", "Dis", str(n), str(k), str(16), str(path_object)], check=True)
-
-        # chunks = ida.split_bytes(request_bytes, n, k)
-        # return [pickle.dumps(c) for c in chunks], n, k
-        return n, k
+        decode_end = time.perf_counter_ns()
+        return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": metadata_object['is_encrypted'], "time_decode": decode_end - decode_start}
 
     @staticmethod
-    def _load_chunk(chunk_path):
-        with open(chunk_path, 'rb') as f:
-            return f.read()
+    def _resilient_distribution(data_bytes, token_user, metadata_service):
+        chunk_start = time.perf_counter_ns()
+
+        servers = requests.get(f"http://{metadata_service}/api/servers/{token_user}").json()
+        k, n = 2, 5
+        encoder_obj = Encoder(k, n)
+
+        if len(data_bytes) == 0:
+            raise ValueError("Input file is empty")
+
+        block_size = int(math.ceil(len(data_bytes) / float(k)))
+        buf = np.frombuffer(data_bytes, dtype=np.uint8)
+        pad_len = block_size * k - len(buf)
+        buf = np.pad(buf, (0, pad_len), constant_values=0)
+        blocks = [buf[i * block_size:(i + 1) * block_size].tobytes() for i in range(k)]
+
+        fragments = encoder_obj.encode(blocks)
+        chunk_end = time.perf_counter_ns()
+
+        return fragments, n, k, chunk_end - chunk_start
+
+    @staticmethod
+    async def _upload_chunk(session, url, data):
+        try:
+            async with session.put(url, data=data) as resp:
+                if resp.status != 201:
+                    raise Exception(f"Upload failed to {url}: {resp.status}")
+        except Exception as e:
+            raise e
+
+    @staticmethod
+    def _get_cached_catalog(token_user, catalog):
+        return DataController.catalog_cache.get((token_user, catalog))
+
+    @staticmethod
+    def _set_cached_catalog(token_user, catalog, catalog_result):
+        DataController.catalog_cache[(token_user, catalog)] = catalog_result
+
+    @staticmethod
+    def _background_erasure_coding(object_path, key_object, token_user, metadata_service,nodes):
+        try:
+            with open(object_path, "rb") as f:
+                data_bytes = f.read()
+
+            fragments, n, k, chunk_time = DataController._resilient_distribution(data_bytes, token_user, metadata_service)
+
+            for i, fragment in enumerate(fragments):
+                url = DataController._http_url(nodes[i]['route'])
+                with requests.Session() as session:
+                    adapter = requests.adapters.HTTPAdapter(
+                        max_retries=requests.adapters.Retry(total=3, backoff_factor=0.3)
+                    )
+                    session.mount('http://', adapter)
+                    session.mount('https://', adapter)
+                    res = session.put(url, data=fragment)
+                    print("RESULT", res)
+
+            # Remove pending marker
+            marker_path = f"{object_path}.pending"
+            if os.path.exists(marker_path):
+                os.remove(marker_path)
+
+            print(f"[PASSIVE EC] Done erasure coding {key_object} in {chunk_time / 1e6:.2f} ms")
+        except Exception as e:
+            print(f"[PASSIVE EC] Error during erasure coding: {e}")
 
     @staticmethod
     def push_data(request, metadata_service, pubsub_service, catalog, token_user, key_object):
+        # start_total = time.perf_counter_ns()
+
+        # time_marks = {}
+
+        # # Read and parse files
+        # start_parse = time.perf_counter_ns()
+        # files = request.files
+        # end_parse = time.perf_counter_ns()
+        # time_marks['parse_time_0'] = end_parse - start_parse
+        # request_json = json.loads(files['json'].read().decode('utf-8'))
+        # #request_bytes = files['data'].read()
+        # end_parse = time.perf_counter_ns()
+        # time_marks['parse_time_1'] = end_parse - start_parse
+        # start_parse = time.perf_counter_ns()
+        # file_path = os.path.join(".temp", request_json['key'])
+        # with open(file_path, 'wb') as f:
+        #     shutil.copyfileobj(files['data'].stream, f)
+        # end_parse = time.perf_counter_ns()
+        # time_marks['parse_time_2'] = end_parse - start_parse
+
+        # passive_ec = True
+        # #print(f"[DEBUG] Uploaded object size: {len(request_bytes)} bytes")
+
+        # #if len(request_bytes) == 0:
+        # #    return {"error": "Uploaded data is empty."}, 400
+
+        # # Write to temp file
+        # #start_write = time.perf_counter_ns()
+        # #object_path = os.path.join(".temp", request_json['key'])
+        # #with open(object_path, 'wb') as f:
+        # #    f.write(request_bytes)
+        # #end_write = time.perf_counter_ns()
+        # #time_marks['write_time'] = end_write - start_write
+
+        # # Catalog creation or retrieval
+        # start_catalog = time.perf_counter_ns()
+        # catalog_result, status = CatalogController.createOrGetCatalog(request, pubsub_service, catalog, token_user)
+        # end_catalog = time.perf_counter_ns()
+        # time_marks['catalog_time'] = end_catalog - start_catalog
+
+        # if status not in [201, 302]:
+        #     return catalog_result, status
+
+        # token_catalog = catalog_result['data']['tokencatalog']
+        # metadata_url = f"http://{metadata_service}/api/storage/{token_user}/{token_catalog}/{key_object}"
+
+        # # Register metadata
+        # request_json['chunks'] = 5
+        # request_json['required_chunks'] = 2
+        # request_json['coding_status'] = 'pending'
+
+        # start_metadata = time.perf_counter_ns()
+        # resp = requests.put(metadata_url, json=request_json)
+        # end_metadata = time.perf_counter_ns()
+        # time_marks['metadata_register_time'] = end_metadata - start_metadata
+
+        # if resp.status_code != 201:
+        #     return resp.json(), resp.status_code
+
+        # nodes = resp.json()['nodes']
+        # url = DataController._http_url(nodes[0]['route'])
+
+        # # Write pending marker
+        # start_marker = time.perf_counter_ns()
+        # marker_path = f"{file_path}.pending"
+        # with open(marker_path, "w") as marker:
+        #     marker.write("pending")
+        # end_marker = time.perf_counter_ns()
+        # time_marks['marker_time'] = end_marker - start_marker
+
+        # # Initial upload of original object to first node
+        # start_upload = time.perf_counter_ns()
+        # # with requests.Session() as session:
+        # #     adapter = requests.adapters.HTTPAdapter(
+        # #         max_retries=requests.adapters.Retry(total=3, backoff_factor=0.3)
+        # #     )
+        # #     session.mount('http://', adapter)
+        # #     session.mount('https://', adapter)
+        # #     upload_resp = session.put(url, data=request_bytes)
+        # end_upload = time.perf_counter_ns()
+        # time_marks['time_upload'] = end_upload - start_upload
+
+        # #if upload_resp.status_code != 201:
+        # #    return upload_resp.json(), upload_resp.status_code
+
+        # # Start background EC
+        # start_thread = time.perf_counter_ns()
+        # thread = threading.Thread(
+        #     target=DataController._background_erasure_coding,
+        #     args=(file_path, key_object, token_user, metadata_service, nodes),
+        #     daemon=passive_ec
+        # )
+        # thread.start()
+        # end_thread = time.perf_counter_ns()
+        # time_marks['ec_thread_start_time'] = end_thread - start_thread
+        # print("AAA", passive_ec)
+        # if not passive_ec:
+        #     print("ENTROOO")
+        #     thread.join()
+
+        # # Register object in catalog
+        # start_register = time.perf_counter_ns()
+        # reg_result, reg_status = CatalogController.registFileInCatalog(
+        #     pubsub_service, token_catalog, token_user, key_object)
+        # end_register = time.perf_counter_ns()
+        # time_marks['catalog_register_time'] = end_register - start_register
+
+        # if reg_status != 201:
+        #     return reg_result, reg_status
+
+        # time_marks['total_time'] = time.perf_counter_ns() - start_total
+
+        # return {
+        #     "key_object": key_object,
+        #     "passive_ec": True,
+        #     **{k: round(v / 1e6, 3) for k, v in time_marks.items()}  # ms
+        # }, 201
+
+        pass
+
+    @staticmethod
+    async def upload_metadata(request, token_user, key_object):
+        if not request:
+            return {"error": "Invalid JSON"}, 400
+
+        metadata_path = f".temp/{key_object}.json"
+        data = await request.get_data()
+        data = data.decode('utf-8')
+        os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
+        with open(metadata_path, "w") as f:
+            json.dump(data, f)
+
+        return {"status": "metadata received"}, 200
+
+    @staticmethod
+    async def upload_data(request, metadata_service, pubsub_service, catalog, token_user, key_object, read_time_ns=None):
         start_time = time.perf_counter_ns()
-        files = request.files
-        request_json = json.loads(files['json'].read().decode('utf-8'))
-        request_bytes = files['data'].read()
+        time_marks = {}
 
-        print("BYTES", len(request_bytes), flush=True)
+        metadata_path = f".temp/{key_object}.json"
+        if not os.path.exists(metadata_path):
+            return {"error": "Missing metadata for object"}, 400
 
-        # Write the object to FS in a temporary location
-        temp_dir = os.path.join(os.getcwd(), '.temp')
-        os.makedirs(temp_dir, exist_ok=True)
+        with open(metadata_path) as f:
+            request_json = json.load(f)
 
-        object_path = os.path.join(temp_dir, request_json['key'])
-        with open(object_path, 'wb') as f:
-            f.write(request_bytes)
+        # if it's a string (e.g., badly serialized JSON like '"{...}"'), parse again
+        if isinstance(request_json, str):
+            request_json = json.loads(request_json)
 
-        if request_json.get('resiliency') == 1:
-            n, k = DataController._resilient_distribution(
-                object_path, len(request_bytes), token_user, metadata_service)
-        else:
-            data = [request_bytes]
-            n = k = 1
+        print(type(request_json), flush=True)
+    
+        print(request_json, flush=True)
 
-        request_json['chunks'] = n
-        request_json['required_chunks'] = k
+        object_path = f".temp/{key_object}"
+        os.makedirs(os.path.dirname(object_path), exist_ok=True)
 
-        catalog_result, status = CatalogController.createOrGetCatalog(
-            request, pubsub_service, catalog, token_user)
-        print(f"Catalog result: {catalog_result}", flush=True)
-        print(f"Catalog status: {status}", flush=True)
+        start_read = time.perf_counter_ns()
+        #async with timeout(app.config['BODY_TIMEOUT']):
+        #async with aiofiles.open(object_path, "wb") as f:
+        with open(object_path, "wb") as f:
+            async for data in request.body:
+                f.write(data)
+            
+            
+        # async with await request.body as body_stream:
+        #     with open(object_path, "wb") as f:
+        #         while True:
+        #             chunk = await body_stream.read(DataController.CHUNK_SIZE)
+        #             if not chunk:
+        #                 break
+        #             f.write(chunk)
+        end_read = time.perf_counter_ns()
+        time_marks['stream_read_time'] = end_read - start_read
+
+        marker_path = f"{object_path}.pending"
+        with open(marker_path, "w") as marker:
+            marker.write("pending")
+
+        start_catalog = time.perf_counter_ns()
+        catalog_result, status = CatalogController.createOrGetCatalog(request, pubsub_service, catalog, token_user)
+        end_catalog = time.perf_counter_ns()
+        time_marks['catalog_time'] = end_catalog - start_catalog
+
         if status not in [201, 302]:
             return catalog_result, status
 
         token_catalog = catalog_result['data']['tokencatalog']
+
+        request_json['chunks'] = 5
+        request_json['required_chunks'] = 2
+        request_json['coding_status'] = 'pending'
+
         metadata_url = f"http://{metadata_service}/api/storage/{token_user}/{token_catalog}/{key_object}"
         resp = requests.put(metadata_url, json=request_json)
 
@@ -242,34 +410,20 @@ class DataController:
             return resp.json(), resp.status_code
 
         nodes = resp.json()['nodes']
-        upload_start = time.perf_counter_ns()
 
-        if n == 1:
-            url = DataController._http_url(nodes[0]['route'])
-
-            upload_resp = requests.put(url, data=data[0])
-            if upload_resp.status_code != 201:
-                return upload_resp.json(), upload_resp.status_code
-        else:
-            for i, node in enumerate(nodes):
-                url = DataController._http_url(node['route'])
-                print("Pushing ", i, "URL", url, flush=True)
-                data = DataController._load_chunk(f"{object_path}.{i}_{n}.fec")
-                upload_resp = requests.put(url, data=data)
-                if upload_resp.status_code != 201:
-                    return upload_resp.json(), upload_resp.status_code
-
-        upload_end = time.perf_counter_ns()
-
-        reg_result, reg_status = CatalogController.registFileInCatalog(
-            pubsub_service, token_catalog, token_user, key_object)
-
-        if reg_status != 201:
-            return reg_result, reg_status
+        thread = threading.Thread(
+            target=DataController._background_erasure_coding,
+            args=(object_path, key_object, token_user, metadata_service, nodes),
+            daemon=True
+        )
+        thread.start()
 
         end_time = time.perf_counter_ns()
+        time_marks['total_tie'] = end_time - start_time
+
         return {
-            "total_time": end_time - start_time,
-            "time_upload": upload_end - upload_start,
-            "key_object": key_object
+            "key_object": key_object,
+            "passive_ec": True,
+            **{k: round(v / 1e6, 3) for k, v in time_marks.items()}  # ms
         }, 201
+

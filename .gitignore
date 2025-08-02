@@ -19,3 +19,5 @@ APIGateway/app/salida
 datacontainer/objects10/
 datacontainer/objects9/
 logs.txt
+APIGateway/app/dynostore/controllers/data.py
+APIGateway/app/.cache/*

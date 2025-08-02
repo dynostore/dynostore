@@ -1,3 +1,2 @@
-from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
+from quart_sqlalchemy import SQLAlchemy
+db = None
