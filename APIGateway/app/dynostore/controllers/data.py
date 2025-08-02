@@ -86,15 +86,20 @@ class DataController:
     @staticmethod
     async def pull_data(token_user, key_object, metadata_service, force_refresh=False):
         decode_start = time.perf_counter_ns()
+        timeline_path = f".temp/{key_object}.timeline.json"
+        timeline = {}
+        timeline["pull_start"] = time.time_ns()
 
         cache_path = DataController._get_cache_path(token_user, key_object)
         if not force_refresh and os.path.exists(cache_path):
             print(f"Serving {key_object} from local cache", flush=True)
             with open(cache_path, "rb") as f:
                 obj = f.read()
+            timeline["pull_end"] = time.time_ns()
+            with open(timeline_path, "w") as f:
+                json.dump(timeline, f, indent=2)
             return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": False, "time_decode": 0}
 
-        # Check for pending marker
         object_path = os.path.join(".temp", key_object)
         marker_path = f"{object_path}.pending"
         if os.path.exists(marker_path):
@@ -103,8 +108,12 @@ class DataController:
             if os.path.exists(object_path):
                 with open(object_path, "rb") as f:
                     obj = f.read()
+                timeline["pull_end"] = time.time_ns()
+                with open(timeline_path, "w") as f:
+                    json.dump(timeline, f, indent=2)
                 return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": False, "time_decode": 0}    
-        
+
+        metadata_retrieval_start = time.perf_counter_ns()
         url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -114,11 +123,14 @@ class DataController:
 
         routes = result['data']['routes']
         metadata_object = result['data']['file']
+        metadata_retrieval_end = time.perf_counter_ns()
 
+        chunk_retrieval_start = time.perf_counter_ns()
         async with aiohttp.ClientSession() as session:
             tasks = [DataController.download_chunk(session, route, key_object) for route in routes]
             results = await asyncio.gather(*tasks)
-
+        chunk_retrieval_end = time.perf_counter_ns()
+        object_reconstruction_start = time.perf_counter_ns()
         if metadata_object["required_chunks"] == 1:
             obj = results[0][1]
         else:
@@ -133,12 +145,24 @@ class DataController:
             obj = b''.join(recovered_blocks)
             if original_size is not None:
                 obj = obj[:original_size]
+        object_reconstruction_end = time.perf_counter_ns()
 
+        object_caching_start = time.perf_counter_ns()
         with open(cache_path, "wb") as f:
             f.write(obj)
         os.utime(cache_path, None)
+        object_caching_end = time.perf_counter_ns()
+
+        timeline["Object caching"] = {"start": object_caching_start, "end": object_caching_end}
+        timeline["Chunk retrieval"] = {"start": chunk_retrieval_start, "end": chunk_retrieval_end}
+        timeline["Object reconstruction"] = {"start": object_reconstruction_start, "end": object_reconstruction_end}
+        timeline["Metadata retrieval"] = {"start": metadata_retrieval_start, "end": metadata_retrieval_end}
 
         decode_end = time.perf_counter_ns()
+        timeline["pull_end"] = time.time_ns()
+        with open(timeline_path, "w") as f:
+            json.dump(timeline, f, indent=2)
+
         return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": metadata_object['is_encrypted'], "time_decode": decode_end - decode_start}
 
     @staticmethod
@@ -181,13 +205,18 @@ class DataController:
         DataController.catalog_cache[(token_user, catalog)] = catalog_result
 
     @staticmethod
-    def _background_erasure_coding(object_path, key_object, token_user, metadata_service,nodes):
+    def _background_erasure_coding(object_path, key_object, token_user, metadata_service, nodes):
+        timeline_path = f".temp/{key_object}.timeline.json"
+        timeline = {}
         try:
+            ec_start = time.time_ns()
             with open(object_path, "rb") as f:
                 data_bytes = f.read()
 
             fragments, n, k, chunk_time = DataController._resilient_distribution(data_bytes, token_user, metadata_service)
+            ec_end = time.time_ns()
 
+            fragment_push_start = time.time_ns()
             for i, fragment in enumerate(fragments):
                 url = DataController._http_url(nodes[i]['route'])
                 with requests.Session() as session:
@@ -199,141 +228,33 @@ class DataController:
                     res = session.put(url, data=fragment)
                     print("RESULT", res)
 
-            # Remove pending marker
             marker_path = f"{object_path}.pending"
             if os.path.exists(marker_path):
                 os.remove(marker_path)
 
+            fragment_push_end = time.time_ns()
+            timeline["erasure_coding"] = {"start": ec_start, "end": ec_end}
+            timeline["fragment_push"] = {"start": fragment_push_start, "end": fragment_push_end}
             print(f"[PASSIVE EC] Done erasure coding {key_object} in {chunk_time / 1e6:.2f} ms")
+
         except Exception as e:
             print(f"[PASSIVE EC] Error during erasure coding: {e}")
+        finally:
+            try:
+                with open(timeline_path, "r") as f:
+                    existing = json.load(f)
+            except Exception:
+                existing = {}
 
-    @staticmethod
-    def push_data(request, metadata_service, pubsub_service, catalog, token_user, key_object):
-        # start_total = time.perf_counter_ns()
-
-        # time_marks = {}
-
-        # # Read and parse files
-        # start_parse = time.perf_counter_ns()
-        # files = request.files
-        # end_parse = time.perf_counter_ns()
-        # time_marks['parse_time_0'] = end_parse - start_parse
-        # request_json = json.loads(files['json'].read().decode('utf-8'))
-        # #request_bytes = files['data'].read()
-        # end_parse = time.perf_counter_ns()
-        # time_marks['parse_time_1'] = end_parse - start_parse
-        # start_parse = time.perf_counter_ns()
-        # file_path = os.path.join(".temp", request_json['key'])
-        # with open(file_path, 'wb') as f:
-        #     shutil.copyfileobj(files['data'].stream, f)
-        # end_parse = time.perf_counter_ns()
-        # time_marks['parse_time_2'] = end_parse - start_parse
-
-        # passive_ec = True
-        # #print(f"[DEBUG] Uploaded object size: {len(request_bytes)} bytes")
-
-        # #if len(request_bytes) == 0:
-        # #    return {"error": "Uploaded data is empty."}, 400
-
-        # # Write to temp file
-        # #start_write = time.perf_counter_ns()
-        # #object_path = os.path.join(".temp", request_json['key'])
-        # #with open(object_path, 'wb') as f:
-        # #    f.write(request_bytes)
-        # #end_write = time.perf_counter_ns()
-        # #time_marks['write_time'] = end_write - start_write
-
-        # # Catalog creation or retrieval
-        # start_catalog = time.perf_counter_ns()
-        # catalog_result, status = CatalogController.createOrGetCatalog(request, pubsub_service, catalog, token_user)
-        # end_catalog = time.perf_counter_ns()
-        # time_marks['catalog_time'] = end_catalog - start_catalog
-
-        # if status not in [201, 302]:
-        #     return catalog_result, status
-
-        # token_catalog = catalog_result['data']['tokencatalog']
-        # metadata_url = f"http://{metadata_service}/api/storage/{token_user}/{token_catalog}/{key_object}"
-
-        # # Register metadata
-        # request_json['chunks'] = 5
-        # request_json['required_chunks'] = 2
-        # request_json['coding_status'] = 'pending'
-
-        # start_metadata = time.perf_counter_ns()
-        # resp = requests.put(metadata_url, json=request_json)
-        # end_metadata = time.perf_counter_ns()
-        # time_marks['metadata_register_time'] = end_metadata - start_metadata
-
-        # if resp.status_code != 201:
-        #     return resp.json(), resp.status_code
-
-        # nodes = resp.json()['nodes']
-        # url = DataController._http_url(nodes[0]['route'])
-
-        # # Write pending marker
-        # start_marker = time.perf_counter_ns()
-        # marker_path = f"{file_path}.pending"
-        # with open(marker_path, "w") as marker:
-        #     marker.write("pending")
-        # end_marker = time.perf_counter_ns()
-        # time_marks['marker_time'] = end_marker - start_marker
-
-        # # Initial upload of original object to first node
-        # start_upload = time.perf_counter_ns()
-        # # with requests.Session() as session:
-        # #     adapter = requests.adapters.HTTPAdapter(
-        # #         max_retries=requests.adapters.Retry(total=3, backoff_factor=0.3)
-        # #     )
-        # #     session.mount('http://', adapter)
-        # #     session.mount('https://', adapter)
-        # #     upload_resp = session.put(url, data=request_bytes)
-        # end_upload = time.perf_counter_ns()
-        # time_marks['time_upload'] = end_upload - start_upload
-
-        # #if upload_resp.status_code != 201:
-        # #    return upload_resp.json(), upload_resp.status_code
-
-        # # Start background EC
-        # start_thread = time.perf_counter_ns()
-        # thread = threading.Thread(
-        #     target=DataController._background_erasure_coding,
-        #     args=(file_path, key_object, token_user, metadata_service, nodes),
-        #     daemon=passive_ec
-        # )
-        # thread.start()
-        # end_thread = time.perf_counter_ns()
-        # time_marks['ec_thread_start_time'] = end_thread - start_thread
-        # print("AAA", passive_ec)
-        # if not passive_ec:
-        #     print("ENTROOO")
-        #     thread.join()
-
-        # # Register object in catalog
-        # start_register = time.perf_counter_ns()
-        # reg_result, reg_status = CatalogController.registFileInCatalog(
-        #     pubsub_service, token_catalog, token_user, key_object)
-        # end_register = time.perf_counter_ns()
-        # time_marks['catalog_register_time'] = end_register - start_register
-
-        # if reg_status != 201:
-        #     return reg_result, reg_status
-
-        # time_marks['total_time'] = time.perf_counter_ns() - start_total
-
-        # return {
-        #     "key_object": key_object,
-        #     "passive_ec": True,
-        #     **{k: round(v / 1e6, 3) for k, v in time_marks.items()}  # ms
-        # }, 201
-
-        pass
+            existing.update(timeline)
+            with open(timeline_path, "w") as f:
+                json.dump(existing, f, indent=2)
 
     @staticmethod
     async def upload_metadata(request, token_user, key_object):
-        if not request:
-            return {"error": "Invalid JSON"}, 400
+        timeline_path = f".temp/{key_object}.timeline.json"
+        timeline = {}
+        upload_meta_start = time.time_ns()
 
         metadata_path = f".temp/{key_object}.json"
         data = await request.get_data()
@@ -342,12 +263,27 @@ class DataController:
         with open(metadata_path, "w") as f:
             json.dump(data, f)
 
+        upload_meta_end = time.time_ns()
+        timeline["upload_metadata"] = {"start": upload_meta_start, "end": upload_meta_end}
+
+        try:
+            with open(timeline_path, "r") as f:
+                existing = json.load(f)
+        except Exception:
+            existing = {}
+        existing.update(timeline)
+        with open(timeline_path, "w") as f:
+            json.dump(existing, f, indent=2)
+
         return {"status": "metadata received"}, 200
 
     @staticmethod
     async def upload_data(request, metadata_service, pubsub_service, catalog, token_user, key_object, read_time_ns=None):
-        start_time = time.perf_counter_ns()
-        time_marks = {}
+        timeline_path = f".temp/{key_object}.timeline.json"
+        timeline = {}
+
+        timeline["upload_start"] = time.time_ns()
+        perf_start = time.perf_counter_ns()
 
         metadata_path = f".temp/{key_object}.json"
         if not os.path.exists(metadata_path):
@@ -355,75 +291,72 @@ class DataController:
 
         with open(metadata_path) as f:
             request_json = json.load(f)
-
-        # if it's a string (e.g., badly serialized JSON like '"{...}"'), parse again
         if isinstance(request_json, str):
             request_json = json.loads(request_json)
-
-        print(type(request_json), flush=True)
-    
-        print(request_json, flush=True)
 
         object_path = f".temp/{key_object}"
         os.makedirs(os.path.dirname(object_path), exist_ok=True)
 
-        start_read = time.perf_counter_ns()
-        #async with timeout(app.config['BODY_TIMEOUT']):
-        #async with aiofiles.open(object_path, "wb") as f:
-        with open(object_path, "wb") as f:
+        stream_start = time.time_ns()
+        async with aiofiles.open(object_path, "wb") as f:
             async for data in request.body:
-                f.write(data)
-            
-            
-        # async with await request.body as body_stream:
-        #     with open(object_path, "wb") as f:
-        #         while True:
-        #             chunk = await body_stream.read(DataController.CHUNK_SIZE)
-        #             if not chunk:
-        #                 break
-        #             f.write(chunk)
-        end_read = time.perf_counter_ns()
-        time_marks['stream_read_time'] = end_read - start_read
+                await f.write(data)
+        stream_end = time.time_ns()
+        timeline["stream"] = {"start": stream_start, "end": stream_end}
 
         marker_path = f"{object_path}.pending"
         with open(marker_path, "w") as marker:
             marker.write("pending")
 
-        start_catalog = time.perf_counter_ns()
+        catalog_start = time.time_ns()
+        perf_catalog_start = time.perf_counter_ns()
         catalog_result, status = CatalogController.createOrGetCatalog(request, pubsub_service, catalog, token_user)
-        end_catalog = time.perf_counter_ns()
-        time_marks['catalog_time'] = end_catalog - start_catalog
+        perf_catalog_end = time.perf_counter_ns()
+        catalog_end = time.time_ns()
+
+        timeline["catalog"] = {"start": catalog_start, "end": catalog_end}
+        timeline["catalog_perf"] = perf_catalog_end - perf_catalog_start
 
         if status not in [201, 302]:
             return catalog_result, status
 
         token_catalog = catalog_result['data']['tokencatalog']
-
         request_json['chunks'] = 5
         request_json['required_chunks'] = 2
         request_json['coding_status'] = 'pending'
 
         metadata_url = f"http://{metadata_service}/api/storage/{token_user}/{token_catalog}/{key_object}"
+        metadata_start = time.time_ns()
         resp = requests.put(metadata_url, json=request_json)
+        metadata_end = time.time_ns()
+
+        timeline["metadata_register"] = {"start": metadata_start, "end": metadata_end}
 
         if resp.status_code != 201:
             return resp.json(), resp.status_code
 
         nodes = resp.json()['nodes']
 
+        ec_thread_start = time.time_ns()
         thread = threading.Thread(
             target=DataController._background_erasure_coding,
             args=(object_path, key_object, token_user, metadata_service, nodes),
             daemon=True
         )
         thread.start()
+        timeline["ec_thread_dispatch"] = {"start": ec_thread_start}
 
-        end_time = time.perf_counter_ns()
-        time_marks['total_tie'] = end_time - start_time
+        timeline["upload_end"] = time.time_ns()
+        total_perf = time.perf_counter_ns() - perf_start
+        timeline["upload_total_perf_ns"] = total_perf
+
+        with open(timeline_path, "w") as f:
+            json.dump(timeline, f, indent=2)
 
         return {
             "key_object": key_object,
             "passive_ec": True,
-            **{k: round(v / 1e6, 3) for k, v in time_marks.items()}  # ms
+            "time_upload": round(total_perf / 1e6, 3)
         }, 201
+
 

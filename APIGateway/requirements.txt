@@ -12,3 +12,4 @@ aiohttp
 quart
 quart-auth
 aiofiles
+quart-sqlalchemy
