@@ -3,16 +3,22 @@ import json
 
 
 class DataContainerController():
-    def regist(request, admintoken: str, metadataService: str):
+    @staticmethod
+    async def regist(request, admintoken: str, metadataService: str):
         url_to_regist = f"http://{metadataService}/api/servers/{admintoken}"
         print(url_to_regist, flush=True)
-        r = requests.post(url_to_regist, data=request.json)
+
+        json_data = await request.json  
+
+        # If you are using `requests` (blocking), it's OK for now
+        r = requests.post(url_to_regist, json=json_data)
+
         print(r.status_code, flush=True)
         print(r.text, flush=True)
         return r.text
-        #return r.json(), r.status_code
 
-    def delete_all(request, admintoken: str, metadataService: str):
+    @staticmethod
+    async def delete_all(request, admintoken: str, metadataService: str):
         url_to_regist = f"http://{metadataService}/api/servers/delete/{admintoken}"
         print(url_to_regist, flush=True)
         r = requests.get(url_to_regist)

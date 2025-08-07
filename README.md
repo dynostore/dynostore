@@ -15,33 +15,67 @@ Los siguientes servicios se encuentran declarados en el archivo ```docker-compos
 + ```metadata```: Metadata service.
 + ```storage1, storage2, storage3, storage4, storage5```: storage containers.
 
+
+## 📦 Prerequisites
+
+- Docker and Docker Compose installed
+- Bash shell
+- (Optional) Python and `httpie` or `curl` for interacting with the API
+
+## 🚀 Deployment Steps
+
+
+This guide describes how to deploy DynoStore in a single-node environment using Docker Compose, set up the metadata database, create an admin user, and register a local data container.
+
+
+### 1. Build and Start the Services
+
+To build the DynoStore services and launch them in the background:
+
 ```bash
-docker compose up -d
+docker compose -f docker-compose-dev.yml build
+docker compose -f docker-compose-dev.yml up -d
 ```
 
-## Client instalation and usage
+> ℹ️ This command will start the metadata service, API gateway, and any other services defined in the `docker-compose-dev.yml` file.
 
-ProxyStore can be accessed through a Python client. This client implement evict, exists, get, and put functions. 
+### 2. Configure the Metadata Database
 
-```python
-from dynostore.client import Client
-import uuid
+Initialize the database schema and apply initial configurations:
 
-token_user = "user-0"
-catalog = "catalog-0"
-data = b"Hello, World!"
+```bash
+bash configure_services.sh
+```
+
+This script sets up the PostgreSQL schema and ensures required tables and migrations are in place.
+
+### 3. Create Superuser
+
+Create a superuser to access the admin API and manage the system:
+
+```bash
+bash generate_admin.sh
+```
+
+After execution, this script will print the admin token. **Save it**, as it is required to perform privileged operations like registering storage nodes.
+
+### 4. Register a Local Data Container
+
+Use the admin token from the previous step to register a local storage backend:
+
+```bash
+bash create_nodes.sh <Admin Token>
+```
+
+Replace `<Admin Token>` with the actual token you received.
 
 
-client = Client("metadata_server")
+This should display the interactive API documentation (Swagger UI).
 
-client.put(
-    data = data,
-    token_user = token_user,
-    catalog = catalog
-)
+## 🧹 Tear Down
 
-received_data = client.get(
-    key = key,
-    token_user = token_user
-)
+To stop and remove all services:
+
+```bash
+docker compose -f docker-compose-dev.yml down
 ```

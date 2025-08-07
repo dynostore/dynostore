@@ -9,6 +9,7 @@ from quart_auth import AuthUser, login_required, login_user, logout_user, curren
 from quart_sqlalchemy import SQLAlchemyConfig
 from quart_sqlalchemy.framework import QuartSQLAlchemy
 from sqlalchemy.orm import Mapped, mapped_column
+import sqlalchemy as sa
 
 
 from dynostore.controllers.auth import AuthController
@@ -24,27 +25,27 @@ app.secret_key = 'supersecret'
 app.config["DEBUG"] = True
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024
 
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 
-#from hypercorn.config import Config
-#print("Starting with body limit:", Config().body_limit, flush=True)
+# from hypercorn.config import Config
+# print("Starting with body limit:", Config().body_limit, flush=True)
 
 db = QuartSQLAlchemy(
-  config=SQLAlchemyConfig(
-      binds=dict(
-          default=dict(
-              engine=dict(
-                  url="sqlite:///db.sqlite",
-                  echo=True,
-                  connect_args=dict(check_same_thread=False),
-              ),
-              session=dict(
-                  expire_on_commit=False,
-              ),
-          )
-      )
-  ),
-  app=app,
+    config=SQLAlchemyConfig(
+        binds=dict(
+            default=dict(
+                engine=dict(
+                    url="sqlite:///db.sqlite",
+                    echo=True,
+                    connect_args=dict(check_same_thread=False),
+                ),
+                session=dict(
+                    expire_on_commit=False,
+                ),
+            )
+        )
+    ),
+    app=app,
 )
 
 
@@ -56,6 +57,7 @@ class DeviceCode(db.Model):
     interval: Mapped[int] = mapped_column(default=5)
     verified: Mapped[bool] = mapped_column(default=False)
     username: Mapped[str] = mapped_column(nullable=True)
+
 
 class AccessToken(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -71,6 +73,7 @@ class AccessToken(db.Model):
             "expires_at": self.expires_at
         }
 
+
 class User(db.Model):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -85,7 +88,7 @@ class User(db.Model):
     @property
     def is_authenticated(self):
         return True  # Flask-Login needs this
-    
+
     def to_dict(self):
         return {
             "username": self.username,
@@ -93,6 +96,7 @@ class User(db.Model):
             "user_token": self.user_token,
             "api_key": self.api_key
         }
+
 
 AUTH_HOST = os.getenv('AUTH_HOST')
 PUB_SUB_HOST = os.getenv('PUB_SUB_HOST')
@@ -107,6 +111,34 @@ db.create_all()
 #     with app.app_context():
 #         db.create_all()
 
+# === Endpoint: CLI gets a device code ===
+
+@app.route("/device/code", methods=["POST"])
+def device_code():
+    device_code = str(uuid4())
+    user_code = str(uuid4())[:8].upper()
+    expires_at = int(time.time()) + 600
+
+    with db.bind.Session() as s:
+        with s.begin():
+            dc = DeviceCode(
+                device_code=device_code,
+                user_code=user_code,
+                expires_at=expires_at
+            )
+            s.add(dc)
+            s.flush()
+            s.refresh(dc)
+
+    return jsonify({
+        "device_code": device_code,
+        "user_code": user_code,
+        "verification_uri": f"http://{PUBLIC_IP}/device",
+        "expires_in": 600,
+        "interval": 5
+    })
+
+
 @app.route("/device", methods=["GET", "POST"])
 async def device_entry():
     if request.method == "GET":
@@ -115,14 +147,15 @@ async def device_entry():
     form = await request.form
     user_code = form.get("user_code")
 
-    with app.app_context():
-        device = DeviceCode.query.filter_by(user_code=user_code).first()
-
+    with db.bind.Session() as s:
+        device = s.scalars(sa.select(DeviceCode).filter_by(
+            user_code=user_code)).first()
     if not device:
         return "Invalid code", 400
 
     session["device_code"] = device.device_code
     return await render_template("login.html", device_code=device.device_code)
+
 
 @app.route("/token/validate", methods=["POST"])
 async def verify_token():
@@ -132,16 +165,25 @@ async def verify_token():
     if not token:
         return jsonify({"error": "missing_token"}), 400
 
-    with app.app_context():
-        token_entry = AccessToken.query.filter_by(token=token).first()
+    with db.bind.Session() as s:
+        token_entry = s.scalars(sa.select(AccessToken).filter_by(
+            token=token)).first()
         now = int(time.time())
         if token_entry and token_entry.expires_at > now:
-            user = User.query.filter_by(username=token_entry.username).first()
+            print(token_entry.username, flush=True)
+            result = s.scalars(sa.select(User))
+            devices = result.all()
+            for device in devices:
+                print(device)
+            user = s.scalars(sa.select(User).filter_by(
+                username=token_entry.username)).first()
+            print(user, flush=True)
             if not user:
                 return jsonify({"error": "user_not_found"}), 404
             return jsonify(user.to_dict()), 200
 
     return jsonify({"error": "invalid_or_expired_token"}), 401
+
 
 @app.route("/me")
 async def profile():
@@ -158,13 +200,16 @@ async def profile():
 
     return jsonify({"username": token_entry.username, "token": token})
 
+
 @app.route('/auth/organization/<name>/<acronym>', methods=["PUT"])
 async def createOrganization(name, acronym):
     data = await request.get_json()
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy'
-    payload = {"option": "NEW", "fullname": name, "acronym": acronym, "fathers_token": data['fathers_token']}
+    payload = {"option": "NEW", "fullname": name,
+               "acronym": acronym, "fathers_token": data['fathers_token']}
     results = requests.post(url_service, json=payload)
     return jsonify(results.json()), results.status_code
+
 
 @app.route('/auth/organization/<name>/<acronym>', methods=["GET"])
 async def getOrganization(name, acronym):
@@ -173,11 +218,13 @@ async def getOrganization(name, acronym):
     results = requests.post(url_service, json=data)
     return jsonify(results.json()), results.status_code
 
+
 @app.route('/auth/organization', methods=["GET"])
 async def getOrganizations():
     url_service = f'http://{AUTH_HOST}/auth/v1/hierarchy/all/'
     results = requests.get(url_service)
     return jsonify(results.json()), results.status_code
+
 
 @app.route('/auth/user', methods=["POST"])
 async def createUser():
@@ -193,9 +240,11 @@ async def createUser():
     results = requests.post(url_service, json=payload)
     return jsonify(results.json()), results.status_code
 
+
 @app.route('/auth/user/<tokenuser>', methods=["GET"])
 async def validateUsertToken(tokenuser):
     return AuthController.validateUsertToken(tokenuser, AUTH_HOST)
+
 
 @app.route("/auth/user/login", methods=["GET", "POST"])
 async def login():
@@ -208,7 +257,8 @@ async def login():
         return "Missing username or password", 400
 
     payload = {"user": inputs["username"], "password": inputs["password"]}
-    resp = requests.post(f"http://{AUTH_HOST}/auth/v1/users/login/", json=payload)
+    resp = requests.post(
+        f"http://{AUTH_HOST}/auth/v1/users/login/", json=payload)
 
     if resp.status_code == 200:
         user_data = resp.json()["data"]
@@ -216,8 +266,11 @@ async def login():
         if request.args.get("type") == "device":
             form = await request.form
             device_code = form.get("device_code")
-            with app.app_context():
-                device = DeviceCode.query.filter_by(device_code=device_code).first()
+
+            with db.bind.Session() as s:
+                device = s.scalars(sa.select(DeviceCode).filter_by(
+                    device_code=device_code)).first()
+
             if not device:
                 return "Invalid session", 400
 
@@ -226,21 +279,35 @@ async def login():
 
             device.verified = True
             device.username = inputs["username"]
-            with app.app_context():
-                db.session.add(AccessToken(token=token, username=inputs["username"], expires_at=expires_at))
-                db.session.commit()
 
-            with app.app_context():
-                user = User.query.filter_by(username=user_data["username"]).first()
-                if not user:
-                    user = User(username=user_data["username"], access_token=user_data["access_token"],
-                                user_token=user_data["tokenuser"], api_key=user_data["apikey"])
-                    db.session.add(user)
-                elif user.user_token != user_data["tokenuser"]:
-                    user.access_token = user_data["access_token"]
-                    user.user_token = user_data["tokenuser"]
-                    user.api_key = user_data["apikey"]
-                db.session.commit()
+            with db.bind.Session() as s:
+                with s.begin():
+                    dc = AccessToken(
+                        token=token,
+                        username=inputs["username"],
+                        expires_at=expires_at
+                    )
+                    s.add(dc)
+
+                    s.flush()
+                    s.refresh(dc)
+
+                    user = s.scalars(sa.select(User).filter_by(
+                        username=user_data["username"])).first()
+                    
+                    print("User found:", user, flush=True)
+                    print(user_data, flush=True)  
+
+                    if not user:
+                        user = User(username=user_data["username"], access_token=user_data["access_token"],
+                                    user_token=user_data["tokenuser"], api_key=user_data["apikey"])
+                        s.add(user)
+                    elif user.user_token != user_data["tokenuser"]:
+                        user.access_token = user_data["access_token"]
+                        user.user_token = user_data["tokenuser"]
+                        user.api_key = user_data["apikey"]
+
+                
 
             return await render_template("auth_success.html", token=token)
 
@@ -248,10 +315,12 @@ async def login():
 
     return "Invalid credentials", 401
 
+
 @app.route("/logout")
 async def logout():
     logout_user()
     return redirect("/")
+
 
 @app.route('/pubsub/<tokenuser>/catalog/<catalogname>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
@@ -265,10 +334,12 @@ async def createCatalog(tokenuser, catalogname):
         data.get('processed', 0)
     )
 
+
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 async def getCatalog(tokenuser, catalog):
     return CatalogController.getCatalog(PUB_SUB_HOST, catalog, tokenuser)
+
 
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)
@@ -277,50 +348,60 @@ async def deleteCatalog(tokenuser, catalog):
     results = requests.delete(url_service)
     return jsonify(results.json()), results.status_code
 
+
 @app.route('/pubsub/<tokenuser>/catalog/<catalog>/list', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 async def listCatalogFiles(tokenuser, catalog):
     return CatalogController.listFilesInCatalog(PUB_SUB_HOST, catalog, tokenuser)
+
 
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 async def downloadObject(tokenuser, keyobject):
     return await DataController.pull_data(tokenuser, keyobject, METADATA_HOST, PUB_SUB_HOST)
 
+
 @app.route('/storage/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 async def uploadObjectDREX(tokenuser, catalog, keyobject):
     return await DataController.push_data(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
+
 
 @app.route('/metadata/<tokenuser>/<keyobject>', methods=["POST"])
 @validateToken(auth_host=AUTH_HOST)
 async def upload_metadata(tokenuser, keyobject):
     return await DataController.upload_metadata(request, tokenuser, keyobject)
 
+
 @app.route('/upload/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 async def upload_data(tokenuser, catalog, keyobject):
     return await DataController.upload_data(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
+
 
 @app.route('/storage/<tokenuser>/<keyobject>/exists', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 async def existsObject(tokenuser, keyobject):
     return DataController.exists_object(request, tokenuser, keyobject, METADATA_HOST)
 
+
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)
 async def deleteObject(tokenuser, keyobject):
     return DataController.delete_object(request, tokenuser, keyobject, METADATA_HOST)
+
 
 @app.route('/datacontainer/<admintoken>', methods=["POST"])
 @validateAdminToken(auth_host=AUTH_HOST)
 async def registDataContainer(admintoken):
     return await DataContainerController.regist(request, admintoken, METADATA_HOST)
 
+
 @app.route('/datacontainer/<admintoken>/all', methods=["DELETE"])
 @validateAdminToken(auth_host=AUTH_HOST)
 async def deleteAllDCs(admintoken):
     return await DataContainerController.delete_all(request, admintoken, METADATA_HOST)
+
 
 @app.route("/statistic/<admintoken>", methods=["GET"])
 @validateAdminToken(auth_host=AUTH_HOST)
@@ -328,6 +409,7 @@ async def statistics(admintoken):
     url_service = f"http://{METADATA_HOST}/api/servers/{admintoken}"
     results = requests.get(url_service)
     return jsonify(results.json()), results.status_code
+
 
 @app.route("/clean/<admintoken>", methods=["GET"])
 @validateAdminToken(auth_host=AUTH_HOST)
@@ -346,8 +428,8 @@ if __name__ == "__main__":
     # config.worker_class = "asyncio"
     print("Starting with body limit:", Config().body_limit, flush=True)
     asyncio.run(hypercorn.asyncio.serve(app, config))
-    #asyncio.run(app.run_task())
+    # asyncio.run(app.run_task())
 
-    #from hypercorn.config import Config
-    #print("Starting with body limit:", Config().body_limit, flush=True)
-    #app.run(host='0.0.0.0', port=80)
+    # from hypercorn.config import Config
+    # print("Starting with body limit:", Config().body_limit, flush=True)
+    # app.run(host='0.0.0.0', port=80)

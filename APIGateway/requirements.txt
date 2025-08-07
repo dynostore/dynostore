@@ -1,15 +1,12 @@
-flask
-flask-login
 Authlib
 requests
 numpy
 drex==0.0.247
 sqlalchemy
-Flask-SQLAlchemy
-flask_login
 zfec
 aiohttp
 quart
 quart-auth
 aiofiles
 quart-sqlalchemy
+hypercorn
