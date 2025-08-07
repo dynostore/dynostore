@@ -71,7 +71,8 @@ class CatalogController():
         tokenuser: str
     ):
         url_service = f'http://{pubsub}/list/catalog/{catalog}'
-        #print(url_service, flush=True)
+        print(url_service, flush=True)
         results = requests.get(url_service)
-        #print(results.text, flush=True)
+        print(results)
+        print(results.text, flush=True)
         return results.json(), results.status_code

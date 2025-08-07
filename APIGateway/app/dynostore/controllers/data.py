@@ -26,6 +26,8 @@ class DataController:
     real_records = RealRecords(dir_data="data/")
     catalog_cache = {}
     CHUNK_SIZE = 64 * 1024  # 64KB
+    N = 10
+    K = 9
 
     @staticmethod
     def evict_cache(max_files=100):
@@ -90,28 +92,28 @@ class DataController:
         timeline = {}
         timeline["pull_start"] = time.time_ns()
 
-        cache_path = DataController._get_cache_path(token_user, key_object)
-        if not force_refresh and os.path.exists(cache_path):
-            print(f"Serving {key_object} from local cache", flush=True)
-            with open(cache_path, "rb") as f:
-                obj = f.read()
-            timeline["pull_end"] = time.time_ns()
-            with open(timeline_path, "w") as f:
-                json.dump(timeline, f, indent=2)
-            return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": False, "time_decode": 0}
+        # cache_path = DataController._get_cache_path(token_user, key_object)
+        # if not force_refresh and os.path.exists(cache_path):
+        #     print(f"Serving {key_object} from local cache", flush=True)
+        #     with open(cache_path, "rb") as f:
+        #         obj = f.read()
+        #     timeline["pull_end"] = time.time_ns()
+        #     with open(timeline_path, "w") as f:
+        #         json.dump(timeline, f, indent=2)
+        #     return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": False, "time_decode": 0}
 
-        object_path = os.path.join(".temp", key_object)
-        marker_path = f"{object_path}.pending"
-        if os.path.exists(marker_path):
-            print("PENDING")
-            object_path = marker_path.replace(".pending", "")
-            if os.path.exists(object_path):
-                with open(object_path, "rb") as f:
-                    obj = f.read()
-                timeline["pull_end"] = time.time_ns()
-                with open(timeline_path, "w") as f:
-                    json.dump(timeline, f, indent=2)
-                return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": False, "time_decode": 0}    
+        # object_path = os.path.join(".temp", key_object)
+        # marker_path = f"{object_path}.pending"
+        # if os.path.exists(marker_path):
+        #     print("PENDING")
+        #     object_path = marker_path.replace(".pending", "")
+        #     if os.path.exists(object_path):
+        #         with open(object_path, "rb") as f:
+        #             obj = f.read()
+        #         timeline["pull_end"] = time.time_ns()
+        #         with open(timeline_path, "w") as f:
+        #             json.dump(timeline, f, indent=2)
+        #         return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": False, "time_decode": 0}    
 
         metadata_retrieval_start = time.perf_counter_ns()
         url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
@@ -123,6 +125,9 @@ class DataController:
 
         routes = result['data']['routes']
         metadata_object = result['data']['file']
+
+        print(metadata_object, flush=True)
+
         metadata_retrieval_end = time.perf_counter_ns()
 
         chunk_retrieval_start = time.perf_counter_ns()
@@ -139,21 +144,25 @@ class DataController:
             chunk_indices = [idx for idx, _ in sorted_results[:metadata_object['required_chunks']]]
             k = metadata_object['required_chunks']
             n = metadata_object['chunks']
-            original_size = metadata_object.get('original_size')
+            original_size = metadata_object.get('size')
+            print("ORI SIZE",original_size, flush=True)
             decoder = Decoder(k, n)
             recovered_blocks = decoder.decode(chunk_data, chunk_indices)
             obj = b''.join(recovered_blocks)
+            print(len(obj), flush=True)
             if original_size is not None:
                 obj = obj[:original_size]
         object_reconstruction_end = time.perf_counter_ns()
 
-        object_caching_start = time.perf_counter_ns()
-        with open(cache_path, "wb") as f:
-            f.write(obj)
-        os.utime(cache_path, None)
-        object_caching_end = time.perf_counter_ns()
+        print(len(obj), flush=True)
 
-        timeline["Object caching"] = {"start": object_caching_start, "end": object_caching_end}
+        # object_caching_start = time.perf_counter_ns()
+        # with open(cache_path, "wb") as f:
+        #     f.write(obj)
+        # os.utime(cache_path, None)
+        # object_caching_end = time.perf_counter_ns()
+
+        #timeline["Object caching"] = {"start": object_caching_start, "end": object_caching_end}
         timeline["Chunk retrieval"] = {"start": chunk_retrieval_start, "end": chunk_retrieval_end}
         timeline["Object reconstruction"] = {"start": object_reconstruction_start, "end": object_reconstruction_end}
         timeline["Metadata retrieval"] = {"start": metadata_retrieval_start, "end": metadata_retrieval_end}
@@ -170,7 +179,7 @@ class DataController:
         chunk_start = time.perf_counter_ns()
 
         servers = requests.get(f"http://{metadata_service}/api/servers/{token_user}").json()
-        k, n = 2, 5
+        k, n = DataController.K, DataController.N
         encoder_obj = Encoder(k, n)
 
         if len(data_bytes) == 0:
@@ -294,6 +303,8 @@ class DataController:
         if isinstance(request_json, str):
             request_json = json.loads(request_json)
 
+        print(request_json, flush=True)
+
         object_path = f".temp/{key_object}"
         os.makedirs(os.path.dirname(object_path), exist_ok=True)
 
@@ -321,8 +332,8 @@ class DataController:
             return catalog_result, status
 
         token_catalog = catalog_result['data']['tokencatalog']
-        request_json['chunks'] = 5
-        request_json['required_chunks'] = 2
+        request_json['chunks'] = DataController.N
+        request_json['required_chunks'] = DataController.K
         request_json['coding_status'] = 'pending'
 
         metadata_url = f"http://{metadata_service}/api/storage/{token_user}/{token_catalog}/{key_object}"
@@ -349,6 +360,12 @@ class DataController:
         timeline["upload_end"] = time.time_ns()
         total_perf = time.perf_counter_ns() - perf_start
         timeline["upload_total_perf_ns"] = total_perf
+
+        reg_result, reg_status = CatalogController.registFileInCatalog(
+            pubsub_service, token_catalog, token_user, key_object)
+
+        if reg_status != 201:
+            return reg_result, reg_status
 
         with open(timeline_path, "w") as f:
             json.dump(timeline, f, indent=2)

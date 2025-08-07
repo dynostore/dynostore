@@ -8,6 +8,7 @@ from quart import Quart, jsonify, request, render_template, redirect, url_for, s
 from quart_auth import AuthUser, login_required, login_user, logout_user, current_user
 from quart_sqlalchemy import SQLAlchemyConfig
 from quart_sqlalchemy.framework import QuartSQLAlchemy
+from quart import session
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -106,6 +107,32 @@ db.create_all()
 # async def startup():
 #     with app.app_context():
 #         db.create_all()
+
+
+# === Endpoint: CLI gets a device code ===
+
+@app.route("/device/code", methods=["POST"])
+async def device_code():
+    device_code = str(uuid4())
+    user_code = str(uuid4())[:8].upper()
+    expires_at = int(time.time()) + 600
+
+    dc = DeviceCode(
+        device_code=device_code,
+        user_code=user_code,
+        expires_at=expires_at
+    )
+
+    db.session.add(dc)
+    db.session.commit()
+
+    return jsonify({
+        "device_code": device_code,
+        "user_code": user_code,
+        "verification_uri": f"http://{PUBLIC_IP}/device",
+        "expires_in": 600,
+        "interval": 5
+    })
 
 @app.route("/device", methods=["GET", "POST"])
 async def device_entry():
@@ -305,7 +332,7 @@ async def upload_data(tokenuser, catalog, keyobject):
 @app.route('/storage/<tokenuser>/<keyobject>/exists', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 async def existsObject(tokenuser, keyobject):
-    return DataController.exists_object(request, tokenuser, keyobject, METADATA_HOST)
+    return await DataController.exists_object(tokenuser, keyobject, METADATA_HOST)
 
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)

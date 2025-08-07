@@ -113,16 +113,47 @@ class Server extends Model
                                 ->toArray(); 
         $result = array();
         $i = 0;
-
-        while($i < $required_chunks){
-            $url = $chunks[$i]["url"];
-            $response = Http::get($url . "/health");
-            if($response->status() == 200){
-                $result[] = array("chunk" => $chunks[$i], "route" => $url . "/objects/" . $chunks[$i]["keyfile"] . $chunks[$i]["keychunk"] . "/$tokenuser", "server" => $url);
-                $i++;
-            }        
+    
+        // === Simulated failure configuration ===
+        $simulate_failures = true;
+        $failure_rate = 0; // 30% chance of failure
+        $simulate_fail_servers = [
+            // e.g., 'http://server1.local', 'http://server3.local'
+        ];
+    
+        // Shuffle to simulate random server order (optional)
+        shuffle($chunks);
+    
+        foreach ($chunks as $chunk) {
+            $url = $chunk["url"];
+    
+            // === Simulate server down ===
+            $is_failed = false;
+            if ($simulate_failures) {
+                if (in_array($url, $simulate_fail_servers)) {
+                    $is_failed = true;
+                } elseif (mt_rand() / mt_getrandmax() < $failure_rate) {
+                    $is_failed = true;
+                }
+            }
+    
+            if (!$is_failed) {
+                $response = Http::get($url . "/health");
+                if ($response->status() == 200) {
+                    $result[] = array(
+                        "chunk" => $chunk,
+                        "route" => $url . "/objects/" . $chunk["keyfile"] . $chunk["keychunk"] . "/$tokenuser",
+                        "server" => $url
+                    );
+                    $i++;
+                }
+            }
+    
+            if ($i >= $required_chunks) {
+                break;
+            }
         }
-
+    
         return $result;
     }
 
