@@ -47,7 +47,7 @@ Initialize the database schema and apply initial configurations:
 bash configure_services.sh
 ```
 
-This script sets up the PostgreSQL schema and ensures required tables and migrations are in place.
+This script sets up the database schema and ensures required tables and migrations are in place.
 
 ### 3. Create Superuser
 
@@ -70,7 +70,20 @@ bash create_nodes.sh <Admin Token>
 Replace `<Admin Token>` with the actual token you received.
 
 
-This should display the interactive API documentation (Swagger UI).
+## 🧰 Install the DynoStore Client
+
+You can install the DynoStore client in an isolated Python environment using `virtualenv`:
+
+```bash
+python3 -m venv dynostore-env
+source dynostore-env/bin/activate
+pip install --upgrade pip
+pip install git+https://github.com/dynostore/dynostore-client
+```
+
+After installation, you can use the `dynostore` command-line tool to interact with the deployed services.
+
+
 
 ## 🧹 Tear Down
 
@@ -79,3 +92,52 @@ To stop and remove all services:
 ```bash
 docker compose -f docker-compose-dev.yml down
 ```
+
+
+## 🧪 DynoStore Client Usage Examples
+
+Once installed, you can use the `dynostore` CLI tool to interact with the deployed metadata server.
+
+### Upload a File
+
+```bash
+dynostore --server 127.0.0.1:8000 put ./data.csv --catalog my-catalog
+```
+
+### Upload a File with Encryption and Resiliency Level
+
+```bash
+dynostore --server 127.0.0.1:8000 put ./data.csv --catalog my-catalog --encrypt --resiliency 1
+```
+
+### Upload All Files in a Directory
+
+```bash
+dynostore --server 127.0.0.1:8000 put ./myfolder --catalog my-catalog --recursive
+```
+
+### Download an Object by Key
+
+```bash
+dynostore --server 127.0.0.1:8000 get <key> --output downloaded.csv
+```
+
+### Download All Objects from a Catalog
+
+```bash
+dynostore --server 127.0.0.1:8000 get_catalog my-catalog output_dir/
+```
+
+### Check if an Object Exists
+
+```bash
+dynostore --server 127.0.0.1:8000 exists <key>
+```
+
+### Evict (Delete) an Object
+
+```bash
+dynostore --server 127.0.0.1:8000 evict <key>
+```
+
+> 📝 Replace `<key>` with the object key returned by the `put` command.
