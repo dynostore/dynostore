@@ -1,0 +1,21 @@
+BootStrap: docker
+From: python:3.12
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export PATH=/usr/local/bin:$PATH
+    export PORT=${PORT:-8000}
+
+%files
+    requirements.txt /install/requirements.txt
+    app /app
+
+%post
+    set -e
+    python3 -m pip install --upgrade pip
+    pip install --no-cache-dir -r /install/requirements.txt
+
+%runscript
+    #!/bin/bash
+    cd /app
+    exec hypercorn main:app --bind 0.0.0.0:${PORT}

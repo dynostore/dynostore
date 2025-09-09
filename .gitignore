@@ -21,3 +21,6 @@ datacontainer/objects9/
 logs.txt
 APIGateway/app/dynostore/controllers/data.py
 APIGateway/app/.cache/*
+sif_images/*.sif
+APIGateway/app/logs/*.log
+*.log

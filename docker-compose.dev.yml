@@ -20,7 +20,7 @@ services:
         ipv4_address: 10.88.0.10
 
   apigateway:
-    image: dynostore/apigateway:python
+    image: dynostore/apigateway:v1.1
     build: 
       context: ./APIGateway
       dockerfile: Dockerfile
@@ -37,7 +37,7 @@ services:
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.11
-    command: hypercorn -c hypercorn.toml main:app --reload
+    command: hypercorn -c hypercorn.toml main:app --reload --log-level debug
 
   metadata_server:
     image: nginx:1.17-alpine
@@ -206,6 +206,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 1
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.19
@@ -227,6 +228,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 2
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.20
@@ -248,6 +250,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 3
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.21
@@ -269,6 +272,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 4
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.22
@@ -290,6 +294,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 5
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.23
@@ -311,6 +316,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 6
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.24
@@ -332,6 +338,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 7
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.25
@@ -353,6 +360,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 8
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.26
@@ -374,6 +382,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 9
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.27
@@ -395,6 +404,7 @@ services:
     environment:
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 10
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.28

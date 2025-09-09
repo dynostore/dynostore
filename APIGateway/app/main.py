@@ -1,8 +1,11 @@
 import os
 import time
+import logging
 import asyncio
 import requests
 from uuid import uuid4
+from logging.handlers import RotatingFileHandler
+
 
 from quart import Quart, jsonify, request, render_template, redirect, url_for, session
 from quart_auth import AuthUser, login_required, login_user, logout_user, current_user
@@ -25,17 +28,15 @@ app.secret_key = 'supersecret'
 app.config["DEBUG"] = True
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024
 
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
-
-# from hypercorn.config import Config
-# print("Starting with body limit:", Config().body_limit, flush=True)
+os.makedirs('/data', exist_ok=True)
+sql_alchemy_database_uri = os.getenv('SQLALCHEMY_DATABASE_URI', "sqlite:////data/app.db")
 
 db = QuartSQLAlchemy(
     config=SQLAlchemyConfig(
         binds=dict(
             default=dict(
                 engine=dict(
-                    url="sqlite:///db.sqlite",
+                    url=sql_alchemy_database_uri,
                     echo=True,
                     connect_args=dict(check_same_thread=False),
                 ),
@@ -47,6 +48,38 @@ db = QuartSQLAlchemy(
     ),
     app=app,
 )
+
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
+
+LOG_DIR = os.getenv("LOG_DIR", "./logs")
+LOG_FILE = os.path.join(LOG_DIR, os.getenv("LOG_FILE", "dynostore.log"))
+LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
+CONSOLE_LEVEL = os.getenv("LOG_CONSOLE_LEVEL", "INFO").upper()
+FILE_LEVEL = os.getenv("LOG_FILE_LEVEL", LOG_LEVEL)
+
+os.makedirs(LOG_DIR, exist_ok=True)
+
+fmt = logging.Formatter("%(asctime)s,%(levelname)s,%(name)s,%(message)s")
+
+root = logging.getLogger()
+root.setLevel(LOG_LEVEL)
+
+# Console
+ch = logging.StreamHandler()
+ch.setLevel(CONSOLE_LEVEL)
+ch.setFormatter(fmt)
+root.addHandler(ch)
+
+# Rotating file (50 MB, keep 10 backups)
+fh = RotatingFileHandler(LOG_FILE, maxBytes=50 * 1024 * 1024, backupCount=10, encoding="utf-8")
+fh.setLevel(FILE_LEVEL)
+fh.setFormatter(fmt)
+root.addHandler(fh)
+
+# Make sure DataController (and friends) actually emit DEBUG
+logging.getLogger("dynostore.controllers.data").setLevel(logging.DEBUG)
+logging.getLogger("dynostore.client").setLevel(logging.DEBUG)
 
 
 class DeviceCode(db.Model):
@@ -418,18 +451,13 @@ async def clean(admintoken):
     results = requests.get(url_service)
     return jsonify(results.json()), results.status_code
 
+@app.route("/health", methods=["GET"])
+async def health():
+    return jsonify({"status": "ok"}), 200
 
 if __name__ == "__main__":
     import hypercorn.asyncio
-    # from hypercorn.config import Config
-
-    # config = Config()
-    # config.bind = ["0.0.0.0:80"]
-    # config.worker_class = "asyncio"
-    print("Starting with body limit:", Config().body_limit, flush=True)
+    config = Config()
+    config.bind = ["0.0.0.0:80"]
+    config.loglevel = "debug"  # ensures Hypercorn’s own logs are verbose
     asyncio.run(hypercorn.asyncio.serve(app, config))
-    # asyncio.run(app.run_task())
-
-    # from hypercorn.config import Config
-    # print("Starting with body limit:", Config().body_limit, flush=True)
-    # app.run(host='0.0.0.0', port=80)
