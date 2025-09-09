@@ -412,7 +412,7 @@ async def upload_data(tokenuser, catalog, keyobject):
 @app.route('/storage/<tokenuser>/<keyobject>/exists', methods=["GET"])
 @validateToken(auth_host=AUTH_HOST)
 async def existsObject(tokenuser, keyobject):
-    return DataController.exists_object(request, tokenuser, keyobject, METADATA_HOST)
+    return await DataController.exists_object(tokenuser, keyobject, METADATA_HOST)
 
 
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["DELETE"])
