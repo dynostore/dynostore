@@ -232,7 +232,6 @@ class DbHandler {
 			//print_r($stmt->rowCount());
 			if ($stmt->rowCount()>0) {
 				$res = $stmt->fetchAll(PDO::FETCH_ASSOC);
-				
 			} else {
 				$res = false;
 			}

@@ -59,6 +59,7 @@ class CatalogController():
     ):
         url_service = f'http://{pubsub}/catalog/{catalog}/object/{keyObject}'
         results = requests.post(url_service)
+        print(results.text, flush=True)
         if results.status_code == 201:
             return results.json(), results.status_code
         elif results:
@@ -71,7 +72,7 @@ class CatalogController():
         tokenuser: str
     ):
         url_service = f'http://{pubsub}/list/catalog/{catalog}'
-        #print(url_service, flush=True)
+        print(url_service, flush=True)
         results = requests.get(url_service)
-        #print(results.text, flush=True)
+        print(results.text, flush=True)
         return results.json(), results.status_code

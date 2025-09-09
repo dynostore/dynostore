@@ -475,6 +475,8 @@ class DataController:
         perf_catalog_end = time.perf_counter_ns()
         catalog_end = time.time_ns()
 
+        print(status, catalog_result, flush=True)
+
         timeline["catalog"] = {"start": catalog_start, "end": catalog_end}
         timeline["catalog_perf"] = perf_catalog_end - perf_catalog_start
         if status not in [201, 302]:
@@ -530,6 +532,17 @@ class DataController:
         timeline["upload_end"] = time.time_ns()
         total_perf = time.perf_counter_ns() - perf_start
         timeline["upload_total_perf_ns"] = total_perf
+
+        # Regist into catalog
+        results, status = CatalogController.registFileInCatalog(
+            pubsub_service, catalog_result["data"]["tokencatalog"], token_user, key_object
+        )
+        print(status, results, flush=True)
+        if status != 200:
+            _log("warning", "UPLOAD_DATA", key_object, "END", "CATALOG_REGISTER_ERROR",
+                 f"status={status};result={results}")
+        else:
+            _log("debug", "UPLOAD_DATA", key_object, "END", "CATALOG_REGISTER_OK", f"status={status}")
 
         try:
             os.makedirs(os.path.dirname(timeline_path), exist_ok=True)

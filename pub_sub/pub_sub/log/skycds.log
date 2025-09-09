@@ -1,2 +1,8 @@
-[19/Mar/2024:10:09:44] (api) SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "catalogs_files_pkey"
-DETAIL:  Key (tokencatalog, token_file)=(0a74b43b074f7beda3e03abaac425cccdb590c5051c1e8759ea5e07977a169f0, cf804388-0adf-45e0-89d9-94e5aa3e3xx) already exists.
+[09/Sep/2025:05:40:05] (api) SQLSTATE[23503]: Foreign key violation: 7 ERROR:  insert or update on table "catalogs_files" violates foreign key constraint "ref_catalogs_files_to_catalogs"
+DETAIL:  Key (tokencatalog)=(61b373929e75b85a4e38dca7ef78ded88e8acebd) is not present in table "catalogs".
+[09/Sep/2025:05:40:05] (api) SQLSTATE[23503]: Foreign key violation: 7 ERROR:  insert or update on table "catalogs_files" violates foreign key constraint "ref_catalogs_files_to_catalogs"
+DETAIL:  Key (tokencatalog)=(61b373929e75b85a4e38dca7ef78ded88e8acebd) is not present in table "catalogs".
+[09/Sep/2025:05:43:04] (api) SQLSTATE[23503]: Foreign key violation: 7 ERROR:  insert or update on table "catalogs_files" violates foreign key constraint "ref_catalogs_files_to_catalogs"
+DETAIL:  Key (tokencatalog)=(61b373929e75b85a4e38dca7ef78ded88e8acebd) is not present in table "catalogs".
+[09/Sep/2025:05:43:04] (api) SQLSTATE[23503]: Foreign key violation: 7 ERROR:  insert or update on table "catalogs_files" violates foreign key constraint "ref_catalogs_files_to_catalogs"
+DETAIL:  Key (tokencatalog)=(61b373929e75b85a4e38dca7ef78ded88e8acebd) is not present in table "catalogs".

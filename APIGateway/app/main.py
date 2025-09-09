@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import logging
 import asyncio
@@ -50,30 +51,26 @@ db = QuartSQLAlchemy(
 )
 
 
+LOG_DIR   = os.getenv("LOG_DIR", "./logs")
+LOG_FILE  = os.path.join(LOG_DIR, os.getenv("LOG_FILE", "dynostore.log"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
-
-LOG_DIR = os.getenv("LOG_DIR", "./logs")
-LOG_FILE = os.path.join(LOG_DIR, os.getenv("LOG_FILE", "dynostore.log"))
-LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
-CONSOLE_LEVEL = os.getenv("LOG_CONSOLE_LEVEL", "INFO").upper()
-FILE_LEVEL = os.getenv("LOG_FILE_LEVEL", LOG_LEVEL)
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
 fmt = logging.Formatter("%(asctime)s,%(levelname)s,%(name)s,%(message)s")
 
 root = logging.getLogger()
-root.setLevel(LOG_LEVEL)
+root.setLevel(getattr(logging, LOG_LEVEL, logging.DEBUG))
 
-# Console
-ch = logging.StreamHandler()
-ch.setLevel(CONSOLE_LEVEL)
+# Console (screen)
+ch = logging.StreamHandler(sys.stdout)   # or sys.stderr
+ch.setLevel(LOG_LEVEL)
 ch.setFormatter(fmt)
 root.addHandler(ch)
 
-# Rotating file (50 MB, keep 10 backups)
-fh = RotatingFileHandler(LOG_FILE, maxBytes=50 * 1024 * 1024, backupCount=10, encoding="utf-8")
-fh.setLevel(FILE_LEVEL)
+# Rotating file
+fh = RotatingFileHandler(LOG_FILE, maxBytes=50*1024*1024, backupCount=10, encoding="utf-8")
+fh.setLevel(LOG_LEVEL)
 fh.setFormatter(fmt)
 root.addHandler(fh)
 
