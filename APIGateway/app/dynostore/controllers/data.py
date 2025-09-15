@@ -45,6 +45,14 @@ def _log(level: str, operation: str, key: str, phase: str, status: str, msg: str
         logger.debug(rec)
 
 
+def _t0() -> int:
+    return time.perf_counter_ns()
+
+
+def _ms_since(t_start_ns: int) -> float:
+    return (time.perf_counter_ns() - t_start_ns) / 1e6
+
+
 class DataController:
     predictor = Predictor()
     real_records = RealRecords(dir_data="data/")
@@ -54,6 +62,7 @@ class DataController:
     @staticmethod
     def evict_cache(max_files=100):
         _log("debug", "EVICT_CACHE", "-", "START", "INIT", f"max_files={max_files}")
+        t_total = _t0()
         cache_dir = ".cache"
         entries = []
         for root, _, files in os.walk(cache_dir):
@@ -69,11 +78,15 @@ class DataController:
             entries.sort()
             for _, path in entries[:-max_files]:
                 try:
+                    t_rm = _t0()
                     os.remove(path)
+                    _log("debug", "EVICT_CACHE", "-", "END", "REMOVE_OK",
+                         f"path={path};time_ms={_ms_since(t_rm):.3f}")
                     removed += 1
                 except Exception as e:
                     _log("warning", "EVICT_CACHE", "-", "END", "REMOVE_ERROR", f"path={path};msg={e}")
-        _log("debug", "EVICT_CACHE", "-", "END", "SUCCESS", f"kept={len(entries)-removed};removed={removed}")
+        _log("debug", "EVICT_CACHE", "-", "END", "SUCCESS",
+             f"kept={len(entries)-removed};removed={removed};total_time_ms={_ms_since(t_total):.3f}")
 
     @staticmethod
     def _http_url(route):
@@ -90,29 +103,34 @@ class DataController:
     async def delete_object(token_user, key_object, metadata_service):
         url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
         _log("debug", "DELETE", key_object, "START", "INIT", f"url={url}")
+        t_http = _t0()
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.delete(url) as resp:
                     payload = await resp.json()
-                    _log("debug", "DELETE", key_object, "END", "SUCCESS", f"status={resp.status}")
+                    _log("debug", "DELETE", key_object, "END", "SUCCESS",
+                         f"status={resp.status};http_time_ms={_ms_since(t_http):.3f}")
                     return payload, resp.status
             except Exception as e:
-                _log("error", "DELETE", key_object, "END", "ERROR", f"url={url};msg={e}")
+                _log("error", "DELETE", key_object, "END", "ERROR",
+                     f"url={url};msg={e};http_time_ms={_ms_since(t_http):.3f}")
                 return {"error": str(e)}, 500
 
     @staticmethod
     async def exists_object(token_user, key_object, metadata_service):
         url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}/exists"
         _log("debug", "EXISTS", key_object, "START", "INIT", f"url={url}")
+        t_http = _t0()
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.get(url) as resp:
                     payload = await resp.json()
                     _log("debug", "EXISTS", key_object, "END", "SUCCESS",
-                         f"status={resp.status};exists={payload.get('exists')}")
+                         f"status={resp.status};exists={payload.get('exists')};http_time_ms={_ms_since(t_http):.3f}")
                     return payload, resp.status
             except Exception as e:
-                _log("error", "EXISTS", key_object, "END", "ERROR", f"url={url};msg={e}")
+                _log("error", "EXISTS", key_object, "END", "ERROR",
+                     f"url={url};msg={e};http_time_ms={_ms_since(t_http):.3f}")
                 return {"error": str(e)}, 500
 
     @staticmethod
@@ -124,18 +142,19 @@ class DataController:
             except Exception:
                 chunk_id = 0
         url = DataController._http_url(route['route'])
-        t0 = time.perf_counter_ns()
+        t0 = _t0()
         _log("debug", "DOWNLOAD_CHUNK", key_object, "START", "RUN", f"chunk_id={chunk_id};url={url}")
         async with session.get(url) as resp:
             resp.raise_for_status()
             data = await resp.read()
-        dt_ms = (time.perf_counter_ns() - t0) / 1e6
+        dt_ms = _ms_since(t0)
         _log("debug", "DOWNLOAD_CHUNK", key_object, "END", "SUCCESS",
              f"chunk_id={chunk_id};bytes={len(data)};time_ms={dt_ms:.3f}")
         return chunk_id, data
 
     @staticmethod
     async def pull_data(token_user, key_object, metadata_service, force_refresh=False):
+        t_total = _t0()
         _log("debug", "PULL", key_object, "START", "INIT",
              f"user={token_user};force_refresh={force_refresh}")
         decode_start = time.perf_counter_ns()
@@ -145,9 +164,11 @@ class DataController:
 
         cache_path = DataController._get_cache_path(token_user, key_object)
         if not force_refresh and os.path.exists(cache_path):
-            _log("debug", "PULL", key_object, "END", "CACHE_HIT", f"path={cache_path}")
+            t_read = _t0()
             with open(cache_path, "rb") as f:
                 obj = f.read()
+            _log("debug", "PULL", key_object, "END", "CACHE_HIT",
+                 f"path={cache_path};bytes={len(obj)};read_time_ms={_ms_since(t_read):.3f};total_time_ms={_ms_since(t_total):.3f}")
             timeline["pull_end"] = time.time_ns()
             os.makedirs(os.path.dirname(timeline_path), exist_ok=True)
             with open(timeline_path, "w") as f:
@@ -160,27 +181,32 @@ class DataController:
             _log("debug", "PULL", key_object, "START", "PENDING_MARKER", f"marker={marker_path}")
             object_path = marker_path.replace(".pending", "")
             if os.path.exists(object_path):
+                t_read = _t0()
                 with open(object_path, "rb") as f:
                     obj = f.read()
+                _log("debug", "PULL", key_object, "END", "PENDING_SERVED",
+                     f"path={object_path};bytes={len(obj)};read_time_ms={_ms_since(t_read):.3f};total_time_ms={_ms_since(t_total):.3f}")
                 timeline["pull_end"] = time.time_ns()
                 os.makedirs(os.path.dirname(timeline_path), exist_ok=True)
                 with open(timeline_path, "w") as f:
                     json.dump(timeline, f, indent=2)
-                _log("debug", "PULL", key_object, "END", "PENDING_SERVED", f"path={object_path}")
                 return obj, 200, {'Content-Type': 'application/octet-stream', "is_encrypted": False, "time_decode": 0}
 
+        # metadata
         metadata_retrieval_start = time.perf_counter_ns()
         url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
+        t_http = _t0()
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as resp:
                     if resp.status >= 400:
                         _log("error", "PULL_METADATA", key_object, "END", "ERROR",
-                             f"status={resp.status};url={url}")
+                             f"status={resp.status};url={url};http_time_ms={_ms_since(t_http):.3f}")
                         return await resp.json(), resp.status
                     result = await resp.json()
         except Exception as e:
-            _log("error", "PULL_METADATA", key_object, "END", "EXCEPTION", f"url={url};msg={e}")
+            _log("error", "PULL_METADATA", key_object, "END", "EXCEPTION",
+                 f"url={url};msg={e};http_time_ms={_ms_since(t_http):.3f}")
             return {"error": str(e)}, 500
 
         routes = result['data']['routes']
@@ -188,8 +214,10 @@ class DataController:
         metadata_retrieval_end = time.perf_counter_ns()
         _log("debug", "PULL_METADATA", key_object, "END", "SUCCESS",
              f"routes={len(routes)};is_encrypted={metadata_object.get('is_encrypted')};"
-             f"required={metadata_object.get('required_chunks')};total={metadata_object.get('chunks')}")
+             f"required={metadata_object.get('required_chunks')};total={metadata_object.get('chunks')};"
+             f"time_ms={(metadata_retrieval_end - metadata_retrieval_start)/1e6:.3f}")
 
+        # chunks
         chunk_retrieval_start = time.perf_counter_ns()
         try:
             async with aiohttp.ClientSession() as session:
@@ -202,6 +230,7 @@ class DataController:
         _log("debug", "PULL_CHUNKS", key_object, "END", "SUCCESS",
              f"count={len(results)};time_ms={(chunk_retrieval_end - chunk_retrieval_start)/1e6:.3f}")
 
+        # reconstruct
         object_reconstruction_start = time.perf_counter_ns()
         try:
             if metadata_object["required_chunks"] == 1:
@@ -214,33 +243,39 @@ class DataController:
                 k = metadata_object['required_chunks']
                 n = metadata_object['chunks']
                 original_size = metadata_object.get('original_size')
+                t_decode = _t0()
                 decoder = Decoder(k, n)
                 recovered_blocks = decoder.decode(chunk_data, chunk_indices)
+                decode_ms = _ms_since(t_decode)
                 obj = b''.join(recovered_blocks)
                 if original_size is not None:
                     obj = obj[:original_size]
                 _log("debug", "RECONSTRUCT", key_object, "END", "EC",
-                     f"k={k};n={n};bytes={len(obj)};orig_size={original_size}")
+                     f"k={k};n={n};bytes={len(obj)};orig_size={original_size};decode_time_ms={decode_ms:.3f}")
         except Exception as e:
             _log("error", "RECONSTRUCT", key_object, "END", "ERROR", f"msg={e}")
             return {"error": str(e)}, 500
         object_reconstruction_end = time.perf_counter_ns()
+        _log("debug", "RECONSTRUCT", key_object, "END", "DONE",
+             f"time_ms={(object_reconstruction_end - object_reconstruction_start)/1e6:.3f}")
 
+        # cache write
         object_caching_start = time.perf_counter_ns()
         try:
             os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            t_write = _t0()
             with open(cache_path, "wb") as f:
                 f.write(obj)
             os.utime(cache_path, None)
             _log("debug", "CACHE_WRITE", key_object, "END", "SUCCESS",
-                 f"path={cache_path};bytes={len(obj)};"
-                 f"time_ms={(time.perf_counter_ns()-object_caching_start)/1e6:.3f}")
+                 f"path={cache_path};bytes={len(obj)};time_ms={_ms_since(t_write):.3f}")
         except Exception as e:
             _log("warning", "CACHE_WRITE", key_object, "END", "ERROR",
                  f"path={cache_path};msg={e}")
 
         # timeline
-        timeline["Object caching"] = {"start": object_caching_start, "end": time.perf_counter_ns()}
+        object_caching_end = time.perf_counter_ns()
+        timeline["Object caching"] = {"start": object_caching_start, "end": object_caching_end}
         timeline["Chunk retrieval"] = {"start": chunk_retrieval_start, "end": chunk_retrieval_end}
         timeline["Object reconstruction"] = {"start": object_reconstruction_start, "end": object_reconstruction_end}
         timeline["Metadata retrieval"] = {"start": metadata_retrieval_start, "end": metadata_retrieval_end}
@@ -249,14 +284,17 @@ class DataController:
         timeline["pull_end"] = time.time_ns()
         try:
             os.makedirs(os.path.dirname(timeline_path), exist_ok=True)
+            t_tw = _t0()
             with open(timeline_path, "w") as f:
                 json.dump(timeline, f, indent=2)
-            _log("debug", "TIMELINE_WRITE", key_object, "END", "SUCCESS", f"path={timeline_path}")
+            _log("debug", "TIMELINE_WRITE", key_object, "END", "SUCCESS",
+                 f"path={timeline_path};time_ms={_ms_since(t_tw):.3f}")
         except Exception as e:
             _log("warning", "TIMELINE_WRITE", key_object, "END", "ERROR",
                  f"path={timeline_path};msg={e}")
 
-        _log("debug", "PULL", key_object, "END", "SUCCESS", f"total_decode_ns={decode_end - decode_start}")
+        _log("debug", "PULL", key_object, "END", "SUCCESS",
+             f"total_time_ms={_ms_since(t_total):.3f};total_decode_ns={decode_end - decode_start}")
         return obj, 200, {
             'Content-Type': 'application/octet-stream',
             "is_encrypted": metadata_object['is_encrypted'],
@@ -268,7 +306,10 @@ class DataController:
         chunk_start = time.perf_counter_ns()
         _log("debug", "EC_SPLIT", "-", "START", "INIT", f"bytes={len(data_bytes)};user={token_user}")
 
+        t_http = _t0()
         servers = requests.get(f"http://{metadata_service}/api/servers/{token_user}").json()
+        _log("debug", "EC_SPLIT", "-", "END", "SERVERS_OK", f"servers={len(servers)};http_time_ms={_ms_since(t_http):.3f}")
+
         k, n = 2, 5
         encoder_obj = Encoder(k, n)
 
@@ -282,25 +323,30 @@ class DataController:
         buf = np.pad(buf, (0, pad_len), constant_values=0)
         blocks = [buf[i * block_size:(i + 1) * block_size].tobytes() for i in range(k)]
 
+        t_encode = _t0()
         fragments = encoder_obj.encode(blocks)
+        enc_ms = _ms_since(t_encode)
         dt_ms = (time.perf_counter_ns() - chunk_start) / 1e6
         _log("debug", "EC_SPLIT", "-", "END", "SUCCESS",
-             f"k={k};n={n};block_size={block_size};fragments={len(fragments)};time_ms={dt_ms:.3f}")
+             f"k={k};n={n};block_size={block_size};fragments={len(fragments)};encode_time_ms={enc_ms:.3f};total_time_ms={dt_ms:.3f}")
 
         return fragments, n, k, int(dt_ms * 1e6)
 
     @staticmethod
     async def _upload_chunk(session, url, data):
         _log("debug", "UPLOAD_CHUNK", "-", "START", "RUN", f"url={url};bytes={len(data)}")
+        t_http = _t0()
         try:
             async with session.put(url, data=data) as resp:
                 if resp.status != 201:
                     _log("error", "UPLOAD_CHUNK", "-", "END", "ERROR",
-                         f"url={url};status={resp.status}")
+                         f"url={url};status={resp.status};http_time_ms={_ms_since(t_http):.3f}")
                     raise Exception(f"Upload failed to {url}: {resp.status}")
-                _log("debug", "UPLOAD_CHUNK", "-", "END", "SUCCESS", f"url={url};status={resp.status}")
+                _log("debug", "UPLOAD_CHUNK", "-", "END", "SUCCESS",
+                     f"url={url};status={resp.status};http_time_ms={_ms_since(t_http):.3f}")
         except Exception as e:
-            _log("error", "UPLOAD_CHUNK", "-", "END", "EXCEPTION", f"url={url};msg={e}")
+            _log("error", "UPLOAD_CHUNK", "-", "END", "EXCEPTION",
+                 f"url={url};msg={e};http_time_ms={_ms_since(t_http):.3f}")
             raise e
 
     @staticmethod
@@ -313,14 +359,17 @@ class DataController:
 
     @staticmethod
     def _background_erasure_coding(object_path, key_object, token_user, metadata_service, nodes):
+        t_total = _t0()
         _log("debug", "PASSIVE_EC", key_object, "START", "INIT",
              f"path={object_path};nodes={len(nodes)}")
         timeline_path = f".temp/{key_object}.timeline.json"
         timeline = {}
         try:
+            t_read = _t0()
             ec_start = time.time_ns()
             with open(object_path, "rb") as f:
                 data_bytes = f.read()
+            read_ms = _ms_since(t_read)
 
             fragments, n, k, chunk_time = DataController._resilient_distribution(
                 data_bytes, token_user, metadata_service
@@ -337,13 +386,15 @@ class DataController:
                         )
                         session.mount('http://', adapter)
                         session.mount('https://', adapter)
+                        t_http = _t0()
                         res = session.put(url, data=fragment)
+                        http_ms = _ms_since(t_http)
                         if res.status_code != 201:
                             _log("error", "PASSIVE_EC_PUSH", key_object, "END", "ERROR",
-                                 f"frag={i};url={url};status={res.status_code};body={res.text[:256]}")
+                                 f"frag={i};url={url};status={res.status_code};time_ms={http_ms:.3f};body={res.text[:256]}")
                         else:
                             _log("debug", "PASSIVE_EC_PUSH", key_object, "END", "SUCCESS",
-                                 f"frag={i};url={url};status={res.status_code};bytes={len(fragment)}")
+                                 f"frag={i};url={url};status={res.status_code};bytes={len(fragment)};time_ms={http_ms:.3f}")
                 except Exception as e:
                     _log("error", "PASSIVE_EC_PUSH", key_object, "END", "EXCEPTION",
                          f"frag={i};url={url};msg={e}")
@@ -351,8 +402,10 @@ class DataController:
             marker_path = f"{object_path}.pending"
             if os.path.exists(marker_path):
                 try:
+                    t_rm = _t0()
                     os.remove(marker_path)
-                    _log("debug", "PASSIVE_EC_MARKER", key_object, "END", "REMOVED", f"marker={marker_path}")
+                    _log("debug", "PASSIVE_EC_MARKER", key_object, "END", "REMOVED",
+                         f"marker={marker_path};time_ms={_ms_since(t_rm):.3f}")
                 except Exception as e:
                     _log("warning", "PASSIVE_EC_MARKER", key_object, "END", "REMOVE_ERROR",
                          f"marker={marker_path};msg={e}")
@@ -360,7 +413,8 @@ class DataController:
             fragment_push_end = time.time_ns()
             timeline["erasure_coding"] = {"start": ec_start, "end": ec_end}
             timeline["fragment_push"] = {"start": fragment_push_start, "end": fragment_push_end}
-            _log("info", "PASSIVE_EC", key_object, "END", "DONE", f"time_ms={chunk_time/1e6:.2f}")
+            _log("info", "PASSIVE_EC", key_object, "END", "DONE",
+                 f"read_time_ms={read_ms:.3f};ec_split_ms={chunk_time/1e6:.2f};total_time_ms={_ms_since(t_total):.3f}")
 
         except Exception as e:
             _log("error", "PASSIVE_EC", key_object, "END", "ERROR", f"msg={e}")
@@ -373,15 +427,18 @@ class DataController:
             existing.update(timeline)
             try:
                 os.makedirs(os.path.dirname(timeline_path), exist_ok=True)
+                t_tw = _t0()
                 with open(timeline_path, "w") as f:
                     json.dump(existing, f, indent=2)
-                _log("debug", "TIMELINE_WRITE", key_object, "END", "SUCCESS", f"path={timeline_path}")
+                _log("debug", "TIMELINE_WRITE", key_object, "END", "SUCCESS",
+                     f"path={timeline_path};time_ms={_ms_since(t_tw):.3f}")
             except Exception as e:
                 _log("warning", "TIMELINE_WRITE", key_object, "END", "ERROR",
                      f"path={timeline_path};msg={e}")
 
     @staticmethod
     async def upload_metadata(request, token_user, key_object):
+        t_total = _t0()
         timeline_path = f".temp/{key_object}.timeline.json"
         timeline = {}
         upload_meta_start = time.time_ns()
@@ -391,13 +448,16 @@ class DataController:
         data = await request.get_data()
         size = len(data) if data else 0
         try:
+            t_write = _t0()
             data = data.decode('utf-8')
             os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
             with open(metadata_path, "w") as f:
                 json.dump(data, f)
-            _log("debug", "UPLOAD_METADATA", key_object, "END", "WRITE_OK", f"path={metadata_path};bytes={size}")
+            _log("debug", "UPLOAD_METADATA", key_object, "END", "WRITE_OK",
+                 f"path={metadata_path};bytes={size};time_ms={_ms_since(t_write):.3f}")
         except Exception as e:
-            _log("error", "UPLOAD_METADATA", key_object, "END", "ERROR", f"msg={e}")
+            _log("error", "UPLOAD_METADATA", key_object, "END", "ERROR",
+                 f"msg={e};total_time_ms={_ms_since(t_total):.3f}")
             return {"error": str(e)}, 500
 
         upload_meta_end = time.time_ns()
@@ -411,17 +471,22 @@ class DataController:
         existing.update(timeline)
         try:
             os.makedirs(os.path.dirname(timeline_path), exist_ok=True)
+            t_tw = _t0()
             with open(timeline_path, "w") as f:
                 json.dump(existing, f, indent=2)
-            _log("debug", "TIMELINE_WRITE", key_object, "END", "SUCCESS", f"path={timeline_path}")
+            _log("debug", "TIMELINE_WRITE", key_object, "END", "SUCCESS",
+                 f"path={timeline_path};time_ms={_ms_since(t_tw):.3f}")
         except Exception as e:
-            _log("warning", "TIMELINE_WRITE", key_object, "END", "ERROR", f"path={timeline_path};msg={e}")
+            _log("warning", "TIMELINE_WRITE", key_object, "END", "ERROR",
+                 f"path={timeline_path};msg={e}")
 
-        _log("debug", "UPLOAD_METADATA", key_object, "END", "SUCCESS", "")
+        _log("debug", "UPLOAD_METADATA", key_object, "END", "SUCCESS",
+             f"total_time_ms={_ms_since(t_total):.3f}")
         return {"status": "metadata received"}, 200
 
     @staticmethod
     async def upload_data(request, metadata_service, pubsub_service, catalog, token_user, key_object, read_time_ns=None):
+        t_total = _t0()
         _log("debug", "UPLOAD_DATA", key_object, "START", "INIT",
              f"user={token_user};catalog={catalog}")
         timeline_path = f".temp/{key_object}.timeline.json"
@@ -432,7 +497,8 @@ class DataController:
 
         metadata_path = f".temp/{key_object}.json"
         if not os.path.exists(metadata_path):
-            _log("error", "UPLOAD_DATA", key_object, "END", "MISSING_METADATA", f"path={metadata_path}")
+            _log("error", "UPLOAD_DATA", key_object, "END", "MISSING_METADATA",
+                 f"path={metadata_path};total_time_ms={_ms_since(t_total):.3f}")
             return {"error": "Missing metadata for object"}, 400
 
         with open(metadata_path) as f:
@@ -447,23 +513,29 @@ class DataController:
         stream_start = time.time_ns()
         total_bytes = 0
         try:
+            t_stream = _t0()
             async with aiofiles.open(object_path, "wb") as f:
                 async for data in request.body:
                     total_bytes += len(data)
                     await f.write(data)
+            stream_ms = _ms_since(t_stream)
         except Exception as e:
-            _log("error", "UPLOAD_DATA", key_object, "END", "STREAM_ERROR", f"msg={e}")
+            _log("error", "UPLOAD_DATA", key_object, "END", "STREAM_ERROR",
+                 f"msg={e};total_time_ms={_ms_since(t_total):.3f}")
             return {"error": str(e)}, 500
         stream_end = time.time_ns()
         timeline["stream"] = {"start": stream_start, "end": stream_end}
         _log("debug", "UPLOAD_DATA", key_object, "END", "STREAM_OK",
-             f"bytes={total_bytes};time_ms={(stream_end-stream_start)/1e6:.3f}")
+             f"bytes={total_bytes};time_ms={stream_ms:.3f}")
 
+        # marker
         marker_path = f"{object_path}.pending"
         try:
+            t_mk = _t0()
             with open(marker_path, "w") as marker:
                 marker.write("pending")
-            _log("debug", "UPLOAD_DATA", key_object, "END", "MARKER_WRITTEN", f"marker={marker_path}")
+            _log("debug", "UPLOAD_DATA", key_object, "END", "MARKER_WRITTEN",
+                 f"marker={marker_path};time_ms={_ms_since(t_mk):.3f}")
         except Exception as e:
             _log("warning", "UPLOAD_DATA", key_object, "END", "MARKER_WRITE_ERROR",
                  f"marker={marker_path};msg={e}")
@@ -475,12 +547,11 @@ class DataController:
         perf_catalog_end = time.perf_counter_ns()
         catalog_end = time.time_ns()
 
-        print(status, catalog_result, flush=True)
-
         timeline["catalog"] = {"start": catalog_start, "end": catalog_end}
         timeline["catalog_perf"] = perf_catalog_end - perf_catalog_start
         if status not in [201, 302]:
-            _log("error", "UPLOAD_DATA", key_object, "END", "CATALOG_ERROR", f"status={status};result={catalog_result}")
+            _log("error", "UPLOAD_DATA", key_object, "END", "CATALOG_ERROR",
+                 f"status={status};result={catalog_result};total_time_ms={_ms_since(t_total):.3f}")
             return catalog_result, status
         _log("debug", "UPLOAD_DATA", key_object, "END", "CATALOG_OK",
              f"status={status};perf_ms={(perf_catalog_end - perf_catalog_start)/1e6:.3f}")
@@ -490,27 +561,27 @@ class DataController:
         request_json['required_chunks'] = 2
         request_json['coding_status'] = 'pending'
 
+        # register metadata
         metadata_url = f"http://{metadata_service}/api/storage/{token_user}/{token_catalog}/{key_object}"
         metadata_start = time.time_ns()
+        t_http = _t0()
         try:
             resp = requests.put(metadata_url, json=request_json)
         except Exception as e:
             _log("error", "UPLOAD_DATA", key_object, "END", "METADATA_REGISTER_EXCEPTION",
-                 f"url={metadata_url};msg={e}")
+                 f"url={metadata_url};msg={e};http_time_ms={_ms_since(t_http):.3f}")
             return {"error": str(e)}, 500
         metadata_end = time.time_ns()
-        timeline["metadata_register"] = {"start": metadata_start, "end": metadata_end}
-
         if resp.status_code != 201:
             try:
                 body = resp.json()
             except Exception:
                 body = {"error": resp.text[:256]}
             _log("error", "UPLOAD_DATA", key_object, "END", "METADATA_REGISTER_ERROR",
-                 f"status={resp.status_code};body={body}")
+                 f"status={resp.status_code};body={body};http_time_ms={_ms_since(t_http):.3f}")
             return body, resp.status_code
         _log("debug", "UPLOAD_DATA", key_object, "END", "METADATA_REGISTER_OK",
-             f"status={resp.status_code};time_ms={(metadata_end-metadata_start)/1e6:.3f}")
+             f"status={resp.status_code};time_ms={(metadata_end-metadata_start)/1e6:.3f};http_time_ms={_ms_since(t_http):.3f}")
 
         nodes = resp.json().get('nodes', [])
         _log("debug", "UPLOAD_DATA", key_object, "END", "NODES_OK", f"count={len(nodes)}")
@@ -533,28 +604,32 @@ class DataController:
         total_perf = time.perf_counter_ns() - perf_start
         timeline["upload_total_perf_ns"] = total_perf
 
-        # Regist into catalog
+        # register into catalog
+        t_reg = _t0()
         results, status = CatalogController.registFileInCatalog(
             pubsub_service, catalog_result["data"]["tokencatalog"], token_user, key_object
         )
-        print(status, results, flush=True)
+        reg_ms = _ms_since(t_reg)
         if status != 200:
             _log("warning", "UPLOAD_DATA", key_object, "END", "CATALOG_REGISTER_ERROR",
-                 f"status={status};result={results}")
+                 f"status={status};result={results};time_ms={reg_ms:.3f}")
         else:
-            _log("debug", "UPLOAD_DATA", key_object, "END", "CATALOG_REGISTER_OK", f"status={status}")
+            _log("debug", "UPLOAD_DATA", key_object, "END", "CATALOG_REGISTER_OK",
+                 f"status={status};time_ms={reg_ms:.3f}")
 
         try:
             os.makedirs(os.path.dirname(timeline_path), exist_ok=True)
+            t_tw = _t0()
             with open(timeline_path, "w") as f:
                 json.dump(timeline, f, indent=2)
-            _log("debug", "TIMELINE_WRITE", key_object, "END", "SUCCESS", f"path={timeline_path}")
+            _log("debug", "TIMELINE_WRITE", key_object, "END", "SUCCESS",
+                 f"path={timeline_path};time_ms={_ms_since(t_tw):.3f}")
         except Exception as e:
             _log("warning", "TIMELINE_WRITE", key_object, "END", "ERROR",
                  f"path={timeline_path};msg={e}")
 
         _log("info", "UPLOAD_DATA", key_object, "END", "SUCCESS",
-             f"time_upload_ms={total_perf/1e6:.3f}")
+             f"time_upload_ms={total_perf/1e6:.3f};total_time_ms={_ms_since(t_total):.3f}")
         return {
             "key_object": key_object,
             "passive_ec": True,
