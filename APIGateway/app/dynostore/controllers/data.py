@@ -302,13 +302,9 @@ class DataController:
         }
 
     @staticmethod
-    def _resilient_distribution(data_bytes, token_user, metadata_service):
+    def _resilient_distribution(data_bytes, token_user):
         chunk_start = time.perf_counter_ns()
         _log("debug", "EC_SPLIT", "-", "START", "INIT", f"bytes={len(data_bytes)};user={token_user}")
-
-        t_http = _t0()
-        servers = requests.get(f"http://{metadata_service}/api/servers/{token_user}").json()
-        _log("debug", "EC_SPLIT", "-", "END", "SERVERS_OK", f"servers={len(servers)};http_time_ms={_ms_since(t_http):.3f}")
 
         k, n = 2, 5
         encoder_obj = Encoder(k, n)
@@ -358,7 +354,7 @@ class DataController:
         DataController.catalog_cache[(token_user, catalog)] = catalog_result
 
     @staticmethod
-    def _background_erasure_coding(object_path, key_object, token_user, metadata_service, nodes):
+    def _background_erasure_coding(object_path, key_object, token_user, nodes):
         t_total = _t0()
         _log("debug", "PASSIVE_EC", key_object, "START", "INIT",
              f"path={object_path};nodes={len(nodes)}")
@@ -372,7 +368,7 @@ class DataController:
             read_ms = _ms_since(t_read)
 
             fragments, n, k, chunk_time = DataController._resilient_distribution(
-                data_bytes, token_user, metadata_service
+                data_bytes, token_user
             )
             ec_end = time.time_ns()
 
@@ -591,7 +587,7 @@ class DataController:
         try:
             thread = threading.Thread(
                 target=DataController._background_erasure_coding,
-                args=(object_path, key_object, token_user, metadata_service, nodes),
+                args=(object_path, key_object, token_user, metadata_service),
                 daemon=True
             )
             thread.start()
