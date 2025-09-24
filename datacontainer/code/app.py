@@ -1,16 +1,22 @@
 # Data container API
 
 import os
+import sys
 import logging
 from flask import Flask, jsonify, request
 import requests
 from werkzeug.utils import secure_filename
 from logging.handlers import RotatingFileHandler
-
+from datetime import datetime, timezone
 
 from dynostore.decorators.token import validateToken
 from caching import LRUCacheStorage
 from dynostore.utils.csvlog import make_csv_logger
+
+class ISO8601UTCFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        return dt.isoformat(timespec="milliseconds")  # 2025-09-10T14:47:10.114+00:00
 
 DATA_CONTAINEER_ID = os.getenv("DATA_CONTAINER_ID")
 DC_NAME = f"DATACONTAINER_{DATA_CONTAINEER_ID}"
@@ -19,27 +25,31 @@ DC_NAME = f"DATACONTAINER_{DATA_CONTAINEER_ID}"
 LOG_DIR = os.getenv("LOG_DIR", "./logs")
 LOG_FILE = os.path.join(LOG_DIR, os.getenv("LOG_FILE", "dynostore.log"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
-CONSOLE_LEVEL = os.getenv("LOG_CONSOLE_LEVEL", "INFO").upper()
-FILE_LEVEL = os.getenv("LOG_FILE_LEVEL", LOG_LEVEL)
+level_int = getattr(logging, LOG_LEVEL, logging.DEBUG)
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
-fmt = logging.Formatter("%(asctime)s,%(levelname)s,%(name)s,%(message)s")
+fmt_str = "%(asctime)s,%(levelname)s,%(name)s,%(message)s"
 
 root = logging.getLogger()
-root.setLevel(LOG_LEVEL)
+root.setLevel(level_int)
+root.handlers.clear()
 
 # Console
-ch = logging.StreamHandler()
-ch.setLevel(CONSOLE_LEVEL)
-ch.setFormatter(fmt)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(level_int)
+ch.setFormatter(ISO8601UTCFormatter(fmt_str))
 root.addHandler(ch)
 
-# Rotating file (50 MB, keep 10 backups)
+# Rotating file
 fh = RotatingFileHandler(LOG_FILE, maxBytes=50 * 1024 * 1024, backupCount=10, encoding="utf-8")
-fh.setLevel(FILE_LEVEL)
-fh.setFormatter(fmt)
+fh.setLevel(level_int)
+fh.setFormatter(ISO8601UTCFormatter(fmt_str))  # <-- was ch.setFormatter(...)
 root.addHandler(fh)
+
+# If make_csv_logger creates its own logger, ensure it propagates or give it no handlers:
+csv_log = logging.getLogger(__name__)
+csv_log.propagate = True  # so it uses root's handlers/formatters
 
 _log = make_csv_logger(DC_NAME, __name__) 
 
@@ -51,7 +61,8 @@ app.config["DEBUG"] = True
 AUTH_HOST = os.getenv('AUTH_HOST')
 URL_AUTH = "http://" + AUTH_HOST + '/auth/v1/user?tokenuser=' if AUTH_HOST else None
 
-storage = LRUCacheStorage(100000)
+# initialize storage with 2GB of memory and 20GB of filesystem
+storage = LRUCacheStorage(2 * 1024**3, 20 * 1024**3)
 
 # check if node is alive
 @app.route('/health', methods=["GET"])

@@ -1,8 +1,8 @@
 import os
-import logging
 import time
 
 from dynostore.utils.csvlog import make_csv_logger
+from dynostore.utils.hardware import get_dir_size
 
 DATA_CONTAINEER_ID = os.getenv("DATA_CONTAINER_ID")
 DC_NAME = f"DATACONTAINER_{DATA_CONTAINEER_ID}"
@@ -40,13 +40,12 @@ class StorageManager:
 
 
 class FileSystemStorage(StorageManager):
-    def __init__(self, basepath: str):
-        t_total = _t0()
+    def __init__(self, basepath: str, capacity: int = 10 * 1024**3):
         self.basepath = os.path.abspath(basepath)
+        self.capacity = capacity  
         os.makedirs(self.basepath, exist_ok=True)
-        self.utilization = 0
-        _log("INIT", "-", "START", "RUN", f"basepath={self.basepath}")
-        _log("INIT", "-", "END", "SUCCESS", f"time_ms={_ms_since(t_total):.3f}")
+        self.utilization = get_dir_size(self.basepath)
+        
 
     # --- internals ---
     def _full_path(self, key: str) -> str:

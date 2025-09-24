@@ -6,7 +6,7 @@ import asyncio
 import requests
 from uuid import uuid4
 from logging.handlers import RotatingFileHandler
-
+from datetime import datetime, timezone
 
 from quart import Quart, jsonify, request, render_template, redirect, url_for, session
 from quart_auth import AuthUser, login_required, login_user, logout_user, current_user
@@ -23,6 +23,11 @@ from dynostore.controllers.datacontainer import DataContainerController
 from dynostore.decorators.token import validateToken, validateAdminToken
 
 from dynostore.db import db
+
+class ISO8601UTCFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        return dt.isoformat(timespec="milliseconds")  # 2025-09-10T14:47:10.114+00:00
 
 app = Quart(__name__)
 app.secret_key = 'supersecret'
@@ -54,24 +59,26 @@ db = QuartSQLAlchemy(
 LOG_DIR   = os.getenv("LOG_DIR", "./logs")
 LOG_FILE  = os.path.join(LOG_DIR, os.getenv("LOG_FILE", "dynostore.log"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
+level_int = getattr(logging, LOG_LEVEL, logging.DEBUG)
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
-fmt = logging.Formatter("%(asctime)s,%(levelname)s,%(name)s,%(message)s")
+fmt_str = "%(asctime)s,%(levelname)s,%(name)s,%(message)s"
 
 root = logging.getLogger()
-root.setLevel(getattr(logging, LOG_LEVEL, logging.DEBUG))
+root.setLevel(level_int)
+root.handlers.clear()  # optional: avoid duplicate handlers on reload
 
-# Console (screen)
-ch = logging.StreamHandler(sys.stdout)   # or sys.stderr
-ch.setLevel(LOG_LEVEL)
-ch.setFormatter(fmt)
+# Console
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(level_int)
+ch.setFormatter(ISO8601UTCFormatter(fmt_str))
 root.addHandler(ch)
 
 # Rotating file
 fh = RotatingFileHandler(LOG_FILE, maxBytes=50*1024*1024, backupCount=10, encoding="utf-8")
-fh.setLevel(LOG_LEVEL)
-fh.setFormatter(fmt)
+fh.setLevel(level_int)
+fh.setFormatter(ISO8601UTCFormatter(fmt_str))
 root.addHandler(fh)
 
 # Make sure DataController (and friends) actually emit DEBUG
