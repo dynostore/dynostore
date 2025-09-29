@@ -10,3 +10,4 @@ quart-auth
 aiofiles
 quart-sqlalchemy
 hypercorn
+httpx

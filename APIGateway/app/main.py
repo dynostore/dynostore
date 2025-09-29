@@ -403,6 +403,10 @@ async def downloadObject(tokenuser, keyobject):
 async def uploadObjectDREX(tokenuser, catalog, keyobject):
     return await DataController.push_data(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
 
+@app.route('/timeline/<tokenuser>/<keyobject>', methods=["GET"])
+@validateToken(auth_host=AUTH_HOST)
+async def get_timeline(tokenuser, keyobject):
+    return await DataController.get_timeline(tokenuser, keyobject)
 
 @app.route('/metadata/<tokenuser>/<keyobject>', methods=["POST"])
 @validateToken(auth_host=AUTH_HOST)

@@ -79,9 +79,9 @@ def upload_object(objectkey, tokenuser):
     if request.method == 'PUT':
         try:
             bytes_ = request.data or b""
-            storage.put(objectkey, bytes_)
+            res = storage.put(objectkey, bytes_)
             _log("UPLOAD", objectkey, "END", "SUCCESS", f"bytes={len(bytes_)};status=201", level="info")
-            return jsonify({"message": "Data successfully uploaded"}), 201
+            return jsonify({"message": "Data successfully uploaded", "data": res}), 201
         except Exception as e:
             _log("UPLOAD", objectkey, "END", "ERROR", f"msg={e};status=500", level="error")
             return jsonify({"error": f"Error uploading data. Exception {e}"}), 500

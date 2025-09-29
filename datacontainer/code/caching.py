@@ -127,46 +127,59 @@ class LRUCacheStorage:
         t_total = _t0()
         size = len(value) if value is not None else 0
         _log("PUT", key, "START", "RUN",
-             f"bytes={size};utilization={self.utilization};capacity={self.capacity}")
-        if key in self.cache:
-            node = self.cache[key]
-            try:
-                old_size = len(node.value) if node.value is not None else 0
-                self.utilization += (size - old_size)
-            except Exception:
-                pass
-            node.value = value
-            t_mv = _t0()
-            self._move_to_front(node)
-            _log("PUT", key, "END", "SUCCESS",
-                 f"update=1;utilization={self.utilization};move_time_ms={_ms_since(t_mv):.3f};total_time_ms={_ms_since(t_total):.3f}")
-        else:
-            ev_ms = 0.0
-            if self.utilization >= self.capacity:
-                t_ev = _t0()
-                _log("PUT", key, "START", "EVICT_REQUIRED",
-                     f"utilization={self.utilization};capacity={self.capacity}")
-                self._evict()
-                ev_ms = _ms_since(t_ev)
-            node = Node(key, value)
-            self.cache[key] = node
-            t_add = _t0()
-            self._add_to_front(node)
-            add_ms = _ms_since(t_add)
-            self.utilization += size
-            _log("PUT", key, "END", "SUCCESS",
-                 f"update=0;utilization={self.utilization};add_time_ms={add_ms:.3f};evict_time_ms={ev_ms:.3f};total_time_ms={_ms_since(t_total):.3f}")
+            f"bytes={size};utilization={self.utilization};capacity={self.capacity}")
 
-            # write to disk
-            try:
-                if key is not None:
-                    t_wr = _t0()
-                    self.filesystem.write(key, value)
-                    _log("PUT_WRITE", key, "END", "SUCCESS",
-                         f"bytes={size};disk_write_time_ms={_ms_since(t_wr):.3f}")
-            except Exception as e:
-                _log("PUT_WRITE", key, "END", "ERROR", f"msg={e}")
-                raise Exception("Error writing to disk.  Exception " + str(e))
+        add_time_ms = 0.0
+        evict_time_ms = 0.0
+        disk_write_time_ms = 0.0
+
+        
+        if self.utilization >= self.capacity:
+            t_ev = _t0()
+            _log("PUT", key, "START", "EVICT_REQUIRED",
+                    f"utilization={self.utilization};capacity={self.capacity}")
+            self._evict()
+            evict_time_ms = _ms_since(t_ev)
+
+        node = Node(key, value)
+        self.cache[key] = node
+
+        t_add = _t0()
+        self._add_to_front(node)
+        add_time_ms = _ms_since(t_add)
+
+        self.utilization += size
+
+        _log("PUT", key, "END", "SUCCESS",
+                f"update=0;utilization={self.utilization};add_time_ms={add_time_ms:.3f};"
+                f"evict_time_ms={evict_time_ms:.3f};total_time_ms={_ms_since(t_total):.3f}")
+
+        # write to disk (as in your original code)
+        try:
+            if key is not None:
+                t_wr = _t0()
+                self.filesystem.write(key, value)
+                disk_write_time_ms = _ms_since(t_wr)
+                _log("PUT_WRITE", key, "END", "SUCCESS",
+                        f"bytes={size};disk_write_time_ms={disk_write_time_ms:.3f}")
+        except Exception as e:
+            _log("PUT_WRITE", key, "END", "ERROR", f"msg={e}")
+            raise Exception("Error writing to disk.  Exception " + str(e))
+
+        # Build uniform result dictionary
+        result = {
+            "key": key,
+            "bytes": size,
+            "caching_ms": add_time_ms + evict_time_ms,             # >0 only when insert path
+            "disk_write_time_ms": disk_write_time_ms,  # >0 only on insert (per original behavior)
+            "total_time_ms": _ms_since(t_total),
+            "utilization": self.utilization,
+            "capacity": self.capacity,
+        }
+        return result
+
+            
+            
 
     def _move_to_front(self, node):
         self._remove_node(node)
