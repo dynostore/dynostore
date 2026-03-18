@@ -1,5 +1,4 @@
 Authlib
-requests
 numpy
 drex==0.0.247
 sqlalchemy
@@ -11,3 +10,4 @@ aiofiles
 quart-sqlalchemy
 hypercorn
 httpx
+git+https://github.com/dynostore/log_watcher

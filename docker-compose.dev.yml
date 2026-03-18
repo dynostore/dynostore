@@ -33,11 +33,15 @@ services:
       PUB_SUB_HOST: pub_sub
       METADATA_HOST: metadata_server
       PUBLIC_IP: 192.168.1.227
+      # KAGIO ENVIRONMENT VARIABLES
+      API_BASE_URL: "http://10.118.81.253:8080"
+      ROOT_USER: "root"
+      LOG_FILES: '["/app/logs/dynostore.log"]'
     restart: always
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.11
-    command: hypercorn -c hypercorn.toml main:app --reload --log-level debug
+    entrypoint: ["/entrypoint.sh"]
 
   metadata_server:
     image: nginx:1.17-alpine

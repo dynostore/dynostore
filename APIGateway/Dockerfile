@@ -6,6 +6,8 @@ WORKDIR /install
 
 RUN pip install -r requirements.txt
 
+ADD start.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ADD app /app
 WORKDIR /app
