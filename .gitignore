@@ -27,3 +27,5 @@ APIGateway/app/logs/*.log
 pub_sub/pub_sub/log/skycds.log
 logs/bench_download.csv
 logs/bench_upload.csv
+pyrightconfig.json
+.vscode/settings.json

@@ -1,3 +1,5 @@
+from json import decoder
+
 import requests
 import json
 import tempfile
@@ -154,7 +156,7 @@ class DataController:
 
     @staticmethod
     async def delete_object(token_user, key_object, metadata_service):
-        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
+        url = f"http://{metadata_service}/storage/{token_user}/{key_object}"
         _log("debug", "DELETE", key_object, "START", "INIT", f"url={url}")
         t_http = _t0()
         async with aiohttp.ClientSession() as session:
@@ -171,7 +173,7 @@ class DataController:
 
     @staticmethod
     async def exists_object(token_user, key_object, metadata_service):
-        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}/exists"
+        url = f"http://{metadata_service}/storage/{token_user}/{key_object}/exists"
         _log("debug", "EXISTS", key_object, "START", "INIT", f"url={url}")
         t_http = _t0()
         async with aiohttp.ClientSession() as session:
@@ -188,6 +190,7 @@ class DataController:
 
     @staticmethod
     async def download_chunk(session, route, key_object):
+        print(f"Downloading chunk from route: {route}", flush=True)
         chunk_id = 0
         if "chunk" in route:
             try:
@@ -250,7 +253,7 @@ class DataController:
 
         # metadata
         metadata_retrieval_start = time.perf_counter_ns()
-        url = f"http://{metadata_service}/api/storage/{token_user}/{key_object}"
+        url = f"http://{metadata_service}/storage/{token_user}/{key_object}"
         t_http = _t0()
         try:
             async with aiohttp.ClientSession() as session:
@@ -264,7 +267,7 @@ class DataController:
             _log("error", "PULL_METADATA", key_object, "END", "EXCEPTION",
                  f"url={url};msg={e};http_time_ms={_ms_since(t_http):.3f}")
             return {"error": str(e)}, 500
-
+        
         routes = result['data']['routes']
         metadata_object = result['data']['file']
         metadata_retrieval_end = time.perf_counter_ns()
@@ -299,22 +302,28 @@ class DataController:
                 sorted_results = sorted(results, key=lambda x: x[0])
                 chunk_data = [
                     data for _, data in sorted_results[:metadata_object['required_chunks']]]
+                
                 chunk_indices = [
                     idx for idx, _ in sorted_results[:metadata_object['required_chunks']]]
+                
                 k = metadata_object['required_chunks']
                 n = metadata_object['chunks']
-                print(f"metadata_object: {metadata_object}", flush=True)
+                
                 original_size = metadata_object.get('size')
                 t_decode = _t0()
                 decoder = Decoder(k, n)
+
+                # Call the decoder
                 recovered_blocks = decoder.decode(chunk_data, chunk_indices)
+
                 decode_ms = _ms_since(t_decode)
                 obj = b''.join(recovered_blocks)
                 if original_size is not None:
-                    obj = obj[:original_size]
+                    obj = obj[:int(original_size)]
                 _log("debug", "RECONSTRUCT", key_object, "END", "EC",
                      f"k={k};n={n};bytes={len(obj)};orig_size={original_size};decode_time_ms={decode_ms:.3f}")
         except Exception as e:
+            print(e, flush=True)
             _log("error", "RECONSTRUCT", key_object,
                  "END", "ERROR", f"msg={e}")
             return {"error": str(e)}, 500
@@ -362,6 +371,7 @@ class DataController:
 
         _log("debug", "PULL", key_object, "END", "SUCCESS",
              f"total_time_ms={_ms_since(t_total):.3f};total_decode_ns={decode_end - decode_start}")
+        
         return obj, 200, {
             'Content-Type': 'application/octet-stream',
             "is_encrypted": metadata_object['is_encrypted'],
@@ -607,6 +617,8 @@ class DataController:
         _log("debug", "UPLOAD_DATA", key_object, "END", "STREAM_OK",
              f"bytes={total_bytes};time_ms={stream_ms:.3f}")
 
+        print(data, flush=True)
+
         # marker (indicates EC pending)
         marker_path = f"{object_path}.pending"
         try:
@@ -644,11 +656,13 @@ class DataController:
         request_json['coding_status'] = 'pending'
 
         # register metadata (async HTTP)
-        metadata_url = f"http://{metadata_service}/api/storage/{token_user}/{token_catalog}/{key_object}"
+        metadata_url = f"http://{metadata_service}/storage/{token_user}/{token_catalog}/{key_object}"
         metadata_start = time.time_ns()
         try:
             t_http = _t0()
             print("req_json", request_json, flush=True)
+            print("metadata_url", metadata_url, flush=True)
+            print("payload", json.dumps(request_json), flush=True)
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.put(metadata_url, json=request_json)
             http_ms = _ms_since(t_http)
@@ -667,7 +681,10 @@ class DataController:
                  f"status={resp.status_code};body={body}")
             return body, resp.status_code
 
-        nodes = resp.json().get('nodes', [])
+        print("Metadata registered successfully", resp.json(), flush=True)
+        nodes = resp.json().get('nodes', []).get('routes', [])
+
+        print("NODES for EC:", nodes, flush=True)
 
 
         # Dispatch EC thread (non-daemon)
