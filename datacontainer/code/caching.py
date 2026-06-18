@@ -126,9 +126,7 @@ class LRUCacheStorage:
     def put(self, key, value):
         t_total = _t0()
         size = len(value) if value is not None else 0
-        _log("PUT", key, "START", "RUN",
-            f"bytes={size};utilization={self.utilization};capacity={self.capacity}")
-
+        
         add_time_ms = 0.0
         evict_time_ms = 0.0
         disk_write_time_ms = 0.0
@@ -150,8 +148,8 @@ class LRUCacheStorage:
 
         self.utilization += size
 
-        _log("PUT", key, "END", "SUCCESS",
-                f"update=0;utilization={self.utilization};add_time_ms={add_time_ms:.3f};"
+        _log("PUT", key, "END", "MEM_SUCCESS",
+                f"utilization={self.utilization};add_time_ms={add_time_ms:.3f};"
                 f"evict_time_ms={evict_time_ms:.3f};total_time_ms={_ms_since(t_total):.3f}")
 
         # write to disk (as in your original code)
@@ -160,8 +158,6 @@ class LRUCacheStorage:
                 t_wr = _t0()
                 self.filesystem.write(key, value)
                 disk_write_time_ms = _ms_since(t_wr)
-                _log("PUT_WRITE", key, "END", "SUCCESS",
-                        f"bytes={size};disk_write_time_ms={disk_write_time_ms:.3f}")
         except Exception as e:
             _log("PUT_WRITE", key, "END", "ERROR", f"msg={e}")
             raise Exception("Error writing to disk.  Exception " + str(e))

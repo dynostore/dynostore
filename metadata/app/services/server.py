@@ -33,7 +33,6 @@ def allocate_single(db: Session, file_model, nodes: list[dict], token_user: str,
     return url
 
 def allocate_ida(db: Session, file_model, nodes: list[dict], token_user: str, userImpactFactor: float = 0.1):
-    print("IDAAA", flush=True)
     required_nodes = file_model.chunks
     chunk_size = file_model.size / max(1, file_model.chunks)
     total_nodes = len(nodes)
@@ -128,7 +127,7 @@ async def locate_ida(db: Session, token_user: str, file_model):
                         "route": f"{url}/objects/{chunk.keyfile}{chunk.keychunk}/{token_user}",
                         "server": url
                     })
-                    i += 1  # type: ignore
+                    i = 1
             except httpx.RequestError as e:
                 print(str(e), flush=True)
                 print("Error", flush=True)

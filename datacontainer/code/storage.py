@@ -98,7 +98,7 @@ class FileSystemStorage(StorageManager):
 
     def write(self, key: str, data: bytes) -> bool:
         t_total = _t0()
-        _log("WRITE", key, "START", "RUN", f"bytes={len(data)}")
+        
         filepath = self._full_path(key)
         try:
             t_mkdir = _t0()
@@ -109,7 +109,7 @@ class FileSystemStorage(StorageManager):
                 f.write(data)
             write_ms = _ms_since(t_write)
             self.utilization += len(data)
-            _log("WRITE", key, "END", "SUCCESS",
+            _log("WRITE", key, "END", "FS_SUCCESS",
                  f"path={filepath};bytes={len(data)};utilization={self.utilization};"
                  f"mkdir_time_ms={mkdir_ms:.3f};write_time_ms={write_ms:.3f};total_time_ms={_ms_since(t_total):.3f}")
             return True

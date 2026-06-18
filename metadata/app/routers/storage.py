@@ -302,8 +302,6 @@ async def pull_file(tokenuser: str, keyfile: str, db: Session = Depends(get_db))
         abekey = db.query(Abekey).filter(Abekey.keyfile == keyfile).first()
         data["abekey"] = abekey.url if abekey else None
 
-    print(data, flush=True)
-
     return {
         "message": "File record found X",
         "data": data

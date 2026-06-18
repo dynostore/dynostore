@@ -617,8 +617,6 @@ class DataController:
         _log("debug", "UPLOAD_DATA", key_object, "END", "STREAM_OK",
              f"bytes={total_bytes};time_ms={stream_ms:.3f}")
 
-        print(data, flush=True)
-
         # marker (indicates EC pending)
         marker_path = f"{object_path}.pending"
         try:

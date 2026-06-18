@@ -1,4 +1,9 @@
 version: "3.8"
+
+x-kagio-env: &kagio-env
+  # KAGIO ENVIRONMENT VARIABLES
+  API_BASE_URL: "http://10.18.173.209:8080"
+  ROOT_USER: "root"
 services:
   # metadata:
   #   build:
@@ -29,13 +34,11 @@ services:
     volumes:
       - ./APIGateway/app/:/app
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       PUB_SUB_HOST: pub_sub
       METADATA_HOST: metadata_server
-      PUBLIC_IP: 192.168.1.227
-      # KAGIO ENVIRONMENT VARIABLES
-      API_BASE_URL: "http://10.118.81.253:8080"
-      ROOT_USER: "root"
+      PUBLIC_IP: 10.18.173.209
       LOG_FILES: '["/app/logs/dynostore.log"]'
     restart: always
     networks:
@@ -51,19 +54,17 @@ services:
     ports:
         - "8095:80"
     volumes:
-      - ./metadata/python_app/:/var/www
+      - ./metadata/app/:/var/www
     environment:
+      <<: *kagio-env
       APIGATEWAY_HOST: apigateway
       AUTH_HOST: auth
-      # KAGIO ENVIRONMENT VARIABLES
-      API_BASE_URL: "http://10.118.81.253:8080"
-      ROOT_USER: "root"
-      LOG_FILES: '["/app/logs/dynostore.log"]'
     restart: always
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.12
-    entrypoint: ["uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "80"]
+    working_dir: /var/www
+    entrypoint: ["sh", "-c", "/start.sh"]
 
   # metadata_server:
   #   image: nginx:1.17-alpine
@@ -165,6 +166,7 @@ services:
       - pub_sub
       - apigateway
     environment:
+      <<: *kagio-env
       APIGATEWAY_HOST: apigateway
     volumes:
       - ./frontend/frontend/:/var/www/html/
@@ -230,16 +232,16 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects1/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 1
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio1.log
+      LOG_FILES: '["/app/logs/datacontainer-1.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.19
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
     
   datacontainer2:
     image: dynostore/datacontainer:v1
@@ -252,16 +254,16 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects2/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 2
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio2.log
+      LOG_FILES: '["/app/logs/datacontainer-2.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.20
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
 
   datacontainer3:
     image: dynostore/datacontainer:v1
@@ -274,16 +276,16 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects3/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 3
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio3.log
+      LOG_FILES: '["/app/logs/datacontainer-3.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.21
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
 
   datacontainer4:
     image: dynostore/datacontainer:v1
@@ -296,16 +298,16 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects4/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 4
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio4.log
+      LOG_FILES: '["/app/logs/datacontainer-4.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.22
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
 
   datacontainer5:
     image: dynostore/datacontainer:v1
@@ -318,16 +320,16 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects5/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 5
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio5.log
+      LOG_FILES: '["/app/logs/datacontainer-5.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.23
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
 
   datacontainer6:
     image: dynostore/datacontainer:v1
@@ -340,16 +342,16 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects6/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 6
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio6.log
+      LOG_FILES: '["/app/logs/datacontainer-6.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.24
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
     
   datacontainer7:
     image: dynostore/datacontainer:v1
@@ -362,16 +364,16 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects7/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 7
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio7.log
+      LOG_FILES: '["/app/logs/datacontainer-7.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.25
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
 
   datacontainer8:
     image: dynostore/datacontainer:v1
@@ -384,16 +386,16 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects8/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 8
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio8.log
+      LOG_FILES: '["/app/logs/datacontainer-8.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.26
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
 
   datacontainer9:
     image: dynostore/datacontainer:v1
@@ -406,16 +408,16 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects9/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 9
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio9.log
+      LOG_FILES: '["/app/logs/datacontainer-9.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.27
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
 
   datacontainer10:
     image: dynostore/datacontainer:v1
@@ -428,17 +430,29 @@ services:
       - ./datacontainer/code/:/app
       - ./datacontainer/objects10/:/data/objects:rw
     environment:
+      <<: *kagio-env
       AUTH_HOST: auth
       APIGATEWAY_HOST: apigateway
       DATA_CONTAINER_ID: 10
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio10.log
+      LOG_FILES: '["/app/logs/datacontainer-10.log"]'
     networks:
       dynonetwork:
         ipv4_address: 10.88.0.28
-    command: >
-      gunicorn --reload --bind 0.0.0.0:80 app:app
-             --workers 1 --threads 2
-             --access-logfile '-' --error-logfile '-' --log-level debug
+    entrypoint: ["sh", "-c", "/start.sh"]
          
+  monitor:
+    build: ./monitor
+    ports:
+      - "8092:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker-compose.dev.yml:/docker-compose.dev.yml:ro
+    restart: always
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.29
+
 volumes:  
   psql-data-vc:
     driver: local

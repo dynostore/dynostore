@@ -23,7 +23,7 @@ DC_NAME = f"DATACONTAINER_{DATA_CONTAINEER_ID}"
 
 # ----- logging (safe default; won't double-configure if app sets handlers) -----
 LOG_DIR = os.getenv("LOG_DIR", "./logs")
-LOG_FILE = os.path.join(LOG_DIR, os.getenv("LOG_FILE", "dynostore.log"))
+LOG_FILE = os.path.join(LOG_DIR, os.getenv("LOG_FILE", f"datacontainer-{DATA_CONTAINEER_ID}.log"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
 level_int = getattr(logging, LOG_LEVEL, logging.DEBUG)
 
@@ -75,12 +75,11 @@ def health():
 @app.route('/objects/<objectkey>/<tokenuser>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 def upload_object(objectkey, tokenuser):
-    _log("UPLOAD", objectkey, "START", "RUN", f"user={tokenuser}")
     if request.method == 'PUT':
         try:
             bytes_ = request.data or b""
             res = storage.put(objectkey, bytes_)
-            _log("UPLOAD", objectkey, "END", "SUCCESS", f"bytes={len(bytes_)};status=201", level="info")
+            _log("UPLOAD", objectkey, "END", "SUCCESS", f"bytes={len(bytes_)}", level="info")
             return jsonify({"message": "Data successfully uploaded", "data": res}), 201
         except Exception as e:
             _log("UPLOAD", objectkey, "END", "ERROR", f"msg={e};status=500", level="error")
