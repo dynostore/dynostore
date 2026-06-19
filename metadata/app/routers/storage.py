@@ -39,11 +39,41 @@ async def file_exists(tokenuser: str, keyfile: str, db: Session = Depends(get_db
                 "disperse": file_model.disperse
             }
         }
-    else:
         return {
             "message": "File not found",
             "exists": False
         }
+
+@router.get("/internal/{keyfile}", dependencies=[])
+async def internal_file_info(keyfile: str, db: Session = Depends(get_db)):
+    file_model = db.query(File).filter(
+        File.keyfile == keyfile,
+        File.removed == False
+    ).first()
+
+    if file_model:
+        try:
+            data = await locate(db, file_model.owner, file_model)
+        except ValueError:
+            data = {"routes": []}
+        return {
+            "message": "File exists",
+            "exists": True,
+            "metadata": {
+                "name": file_model.name,
+                "keyfile": file_model.keyfile,
+                "size": file_model.size,
+                "hash": file_model.hash,
+                "is_encrypted": file_model.is_encrypted,
+                "chunks": file_model.chunks,
+                "required_chunks": file_model.required_chunks,
+                "owner": file_model.owner,
+                "disperse": file_model.disperse
+            },
+            "nodes": data.get("routes", [])
+        }
+    else:
+        return {"message": "File not found", "exists": False}
 
 @router.delete("/{tokenuser}/{keyfile}", dependencies=[Depends(verify_token)])
 async def delete_file(tokenuser: str, keyfile: str, db: Session = Depends(get_db)):
@@ -143,7 +173,7 @@ async def push_file(
 
 
     try:
-        data_routes = allocate(db, file_model, nodes_dict, tokenuser)
+        data_routes = allocate(db, file_model, nodes_dict, tokenuser, excluded_nodes=payload.excluded_nodes)
     except ValueError as e:
         print(e, flush=True)
         raise HTTPException(status_code=400, detail=str(e))

@@ -17,7 +17,11 @@ def sort_nodes_by_uf(nodes: list[dict], file_size: float):
 
     nodes.sort(key=lambda x: x["uf"])
 
-def allocate_single(db: Session, file_model, nodes: list[dict], token_user: str, userImpactFactor=0.1):
+def allocate_single(db: Session, file_model, nodes: list[dict], token_user: str, userImpactFactor=0.1, excluded_nodes: list[int] = None):
+    if excluded_nodes:
+        nodes = [n for n in nodes if n["id"] not in excluded_nodes]
+        if not nodes:
+            raise ValueError("Not enough nodes after excluding original nodes")
     sort_nodes_by_uf(nodes, file_model.size)
     node = nodes[0]
     
@@ -32,13 +36,16 @@ def allocate_single(db: Session, file_model, nodes: list[dict], token_user: str,
     
     return url
 
-def allocate_ida(db: Session, file_model, nodes: list[dict], token_user: str, userImpactFactor: float = 0.1):
+def allocate_ida(db: Session, file_model, nodes: list[dict], token_user: str, userImpactFactor: float = 0.1, excluded_nodes: list[int] = None):
+    if excluded_nodes:
+        nodes = [n for n in nodes if n["id"] not in excluded_nodes]
+    
     required_nodes = file_model.chunks
     chunk_size = file_model.size / max(1, file_model.chunks)
     total_nodes = len(nodes)
 
     if required_nodes > total_nodes:
-        raise ValueError("Not enough nodes")
+        raise ValueError("Not enough nodes after exclusion")
 
     sort_nodes_by_uf(nodes, file_model.size)
 
@@ -64,12 +71,12 @@ def allocate_ida(db: Session, file_model, nodes: list[dict], token_user: str, us
     db.commit()
     return result
 
-def allocate(db: Session, file_model, nodes: list[dict], token_user: str):
+def allocate(db: Session, file_model, nodes: list[dict], token_user: str, excluded_nodes: list[int] = None):
     if file_model.disperse in ["IDA", "SIDA"]:
-        data = allocate_ida(db, file_model, nodes, token_user)
+        data = allocate_ida(db, file_model, nodes, token_user, excluded_nodes=excluded_nodes)
         return data # returns list of routes
     elif file_model.disperse == "SINGLE":
-        url = allocate_single(db, file_model, nodes, token_user)
+        url = allocate_single(db, file_model, nodes, token_user, excluded_nodes=excluded_nodes)
         return [{"route": url}]
     return []
 

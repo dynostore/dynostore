@@ -5,6 +5,7 @@ ADD requirements.txt /install/requirements.txt
 WORKDIR /install
 
 RUN pip install -r requirements.txt
+RUN pip install git+https://github.com/CoCo-ARCOS/kagio-client.git
 
 ADD start.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

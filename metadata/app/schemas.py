@@ -9,6 +9,7 @@ class FileCreate(BaseModel):
     is_encrypted: bool
     chunks: int
     required_chunks: int = 1
+    excluded_nodes: List[int] = []
 
     class Config:
         from_attributes = True

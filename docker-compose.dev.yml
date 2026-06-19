@@ -4,6 +4,9 @@ x-kagio-env: &kagio-env
   # KAGIO ENVIRONMENT VARIABLES
   API_BASE_URL: "http://10.18.173.209:8080"
   ROOT_USER: "root"
+  KAGIO_FOXX_URL: "http://localhost:8529/_db/_system/kagio"
+  KAGIO_FOXX_DB: "fgcs"
+
 services:
   # metadata:
   #   build:
@@ -39,6 +42,7 @@ services:
       PUB_SUB_HOST: pub_sub
       METADATA_HOST: metadata_server
       PUBLIC_IP: 10.18.173.209
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio.log
       LOG_FILES: '["/app/logs/dynostore.log"]'
     restart: always
     networks:

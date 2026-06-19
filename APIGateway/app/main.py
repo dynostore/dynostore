@@ -142,6 +142,9 @@ PUBLIC_IP = os.getenv('PUBLIC_IP', 'localhost')
 
 db.create_all()
 
+from dynostore.daemons.replicator import start_replicator_daemon
+start_replicator_daemon()
+
 
 # @app.before_serving
 # async def startup():

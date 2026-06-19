@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Start the Log Watcher in the background
-logwatcher  2>&1 | tee /app/logs/kagio.log &
+logwatcher &
 
 # Start the Hypercorn server for the API Gateway
 
