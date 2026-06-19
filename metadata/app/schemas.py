@@ -10,6 +10,7 @@ class FileCreate(BaseModel):
     chunks: int
     required_chunks: int = 1
     excluded_nodes: List[int] = []
+    indegree: int = 0
 
     class Config:
         from_attributes = True

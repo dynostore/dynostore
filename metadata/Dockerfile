@@ -33,6 +33,7 @@ COPY app/ /var/www/
 
 # Install Python requirements
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install git+https://github.com/CoCo-ARCOS/kagio-client.git
 
 #RUN pip install git+https://github.com/dynostore/log_watcher
 

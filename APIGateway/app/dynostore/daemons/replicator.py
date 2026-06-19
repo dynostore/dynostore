@@ -9,6 +9,11 @@ from dynostore.controllers.data import DataController
 
 logger = logging.getLogger(__name__)
 
+KAGIO_BASE_URL = os.getenv("API_BASE_URL", "http://10.18.173.209:8080")
+KAGIO_FOXX_URL = os.getenv("KAGIO_FOXX_URL", "http://localhost:8529/_db/_system/kagio")
+KAGIO_FOXX_DB = os.getenv("KAGIO_FOXX_DB", "_system")
+KAGIO_API_KEY = os.getenv("KAGIO_API_KEY", None)
+
 def start_replicator_daemon():
     thread = Thread(target=replicator_loop, daemon=True)
     thread.start()
@@ -18,10 +23,7 @@ def replicator_loop():
     # Wait a bit before starting
     time.sleep(10)
     
-    KAGIO_BASE_URL = os.getenv("API_BASE_URL", "http://10.18.173.209:8080")
-    KAGIO_FOXX_URL = os.getenv("KAGIO_FOXX_URL", "http://localhost:8529/_db/_system/kagio")
-    KAGIO_FOXX_DB = os.getenv("KAGIO_FOXX_DB", "_system")
-    KAGIO_API_KEY = os.getenv("KAGIO_API_KEY", None)
+    
     metadata_service = os.getenv("METADATA_HOST", "metadata_server")
     pubsub_service = os.getenv("PUB_SUB_HOST", "pub_sub")
     
@@ -79,7 +81,7 @@ def replicator_loop():
                 # Actually, let's just make a direct HTTP call to metadata server if we need to.
                 # Since we are inside APIGateway, we can use the DataController.
                 # Let's use asyncio to run the async functions.
-                asyncio.run(replicate_object(obj_id_ori, new_obj_id, metadata_service, pubsub_service))
+                asyncio.run(replicate_object(obj_id_ori, new_obj_id, n_reads, metadata_service, pubsub_service))
 
         except Exception as e:
             logger.error(f"Replicator daemon error: {e}")
@@ -87,7 +89,7 @@ def replicator_loop():
         # Parameterized for evaluation: every 5 minutes (300 seconds)
         time.sleep(300)
 
-async def replicate_object(obj_id_ori, new_obj_id, metadata_service, pubsub_service):
+async def replicate_object(obj_id_ori, new_obj_id, n_reads, metadata_service, pubsub_service):
     import aiohttp
     import httpx
     
@@ -142,11 +144,13 @@ async def replicate_object(obj_id_ori, new_obj_id, metadata_service, pubsub_serv
         "is_encrypted": meta["is_encrypted"],
         "chunks": 5, # or meta["chunks"]
         "required_chunks": 2, # or meta["required_chunks"]
-        "excluded_nodes": original_nodes
+        "excluded_nodes": original_nodes,
+        "indegree": n_reads
     }
 
     metadata_url = f"http://{metadata_service}/storage/{owner}/system_catalog/{new_obj_id}"
     
+    t_meta = time.perf_counter_ns()
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.put(metadata_url, json=request_json)
@@ -160,11 +164,18 @@ async def replicate_object(obj_id_ori, new_obj_id, metadata_service, pubsub_serv
             logger.error(f"Exception registering replica {new_obj_id}: {e}")
             return
             
+    meta_ms = (time.perf_counter_ns() - t_meta) / 1e6
+    DataController._log("debug", "UPLOAD_METADATA", new_obj_id, "-", "SUCCESS", f"total_time_ms={meta_ms:.3f}")
+            
     # Dispatch EC thread directly
     object_path = f".temp/{new_obj_id}"
     os.makedirs(os.path.dirname(object_path), exist_ok=True)
+    t_stream = time.perf_counter_ns()
     with open(object_path, "wb") as f:
         f.write(obj_bytes)
+    stream_ms = (time.perf_counter_ns() - t_stream) / 1e6
+    
+    DataController._log("debug", "UPLOAD_DATA", new_obj_id, "END", "STREAM_OK", f"bytes={len(obj_bytes)};time_ms={stream_ms:.3f}")
         
     try:
         from threading import Thread
@@ -174,6 +185,7 @@ async def replicate_object(obj_id_ori, new_obj_id, metadata_service, pubsub_serv
             daemon=False
         )
         thread.start()
+        DataController._log("info", "UPLOAD_DATA", new_obj_id, "END", "SUCCESS", f"time_upload_ms={stream_ms:.3f};total_time_ms=0.000;chunks={request_json['chunks']};required={request_json['required_chunks']}")
         logger.info(f"Successfully started replication for {new_obj_id} excluding nodes {original_nodes}")
     except Exception as e:
         logger.error(f"Failed to start EC thread for replica: {e}")

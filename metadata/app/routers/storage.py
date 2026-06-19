@@ -173,7 +173,7 @@ async def push_file(
 
 
     try:
-        data_routes = allocate(db, file_model, nodes_dict, tokenuser, excluded_nodes=payload.excluded_nodes)
+        data_routes = allocate(db, file_model, nodes_dict, tokenuser, excluded_nodes=payload.excluded_nodes, indegree=payload.indegree)
     except ValueError as e:
         print(e, flush=True)
         raise HTTPException(status_code=400, detail=str(e))

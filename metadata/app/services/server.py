@@ -5,24 +5,76 @@ from sqlalchemy.orm import Session
 from models import Chunk, FilesInServer, Server
 from fastapi import HTTPException
 
+import os
+from kagio.kagio import KAGIO
+import math
+import random
+
 # Constants
 NODES_REQUIRED_PUSH = 5
+KAGIO_BASE_URL = os.getenv("API_BASE_URL", "http://10.18.173.209:8080")
+KAGIO_FOXX_URL = os.getenv("KAGIO_FOXX_URL", "http://localhost:8529/_db/_system/kagio")
+KAGIO_FOXX_DB = os.getenv("KAGIO_FOXX_DB", "_system")
+KAGIO_API_KEY = os.getenv("KAGIO_API_KEY", None)
 
-def sort_nodes_by_uf(nodes: list[dict], file_size: float):
-    # nodes is a list of dicts (from SQLAlchemy models converted to dict, plus `used` key)
+def _norm(vals: list[float]) -> list[float]:
+    if not vals:
+        return []
+    vmin, vmax = min(vals), max(vals)
+    if math.isclose(vmin, vmax, rel_tol=1e-12, abs_tol=1e-12):
+        return [0.0] * len(vals)
+    return [(v - vmin) / (vmax - vmin) for v in vals]
+
+def sort_nodes_degree_aware(nodes: list[dict], file_size: float, indegree: int = 0):
     for node in nodes:
         used = node.get("used", 0)
-        storage = float(node.get("storage", 1.0)) or 1.0  # Prevent division by zero
+        storage = float(node.get("storage", 1.0)) or 1.0
         node["uf"] = 1.0 - float((storage - (used + file_size)) / storage)
 
-    nodes.sort(key=lambda x: x["uf"])
+    # Simulator weights
+    pr_weight = 0.75
+    uf_weight = 0.25
+    total_w = uf_weight + pr_weight
+    w_uf_default = uf_weight / total_w
+    w_pr_default = pr_weight / total_w
 
-def allocate_single(db: Session, file_model, nodes: list[dict], token_user: str, userImpactFactor=0.1, excluded_nodes: list[int] = None):
+    if indegree > 0:
+        # Fetch PR from KAGIO
+        try:
+            kagio_client = KAGIO(base_url=KAGIO_BASE_URL, foxx_url=KAGIO_FOXX_URL, foxx_db=KAGIO_FOXX_DB, api_key=KAGIO_API_KEY)
+            ranks = kagio_client.centrality.data_containers_page_rank()
+            pr_map = {}
+            for entry in ranks:
+                try:
+                    dc_id = int(str(entry["id"]).replace("datacontainer-", "").replace("dc-", ""))
+                    pr_map[dc_id] = float(entry["pagerank"])
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"Error fetching KAGIO pagerank: {e}")
+            pr_map = {}
+
+        uf_vals = [node["uf"] for node in nodes]
+        pr_vals = [pr_map.get(node["id"], 0.0) for node in nodes]
+        
+        uf_norm = _norm(uf_vals)
+        pr_norm = _norm(pr_vals)
+        
+        rng = random.Random()
+        for i, node in enumerate(nodes):
+            epsilon = rng.random() * 1e-6
+            node["score"] = (w_uf_default * uf_norm[i]) + (w_pr_default * pr_norm[i]) + epsilon
+            
+        nodes.sort(key=lambda x: x["score"])
+    else:
+        nodes.sort(key=lambda x: x["uf"])
+
+def allocate_single(db: Session, file_model, nodes: list[dict], token_user: str, userImpactFactor=0.1, excluded_nodes: list[int] = None, indegree: int = 0):
     if excluded_nodes:
         nodes = [n for n in nodes if n["id"] not in excluded_nodes]
         if not nodes:
             raise ValueError("Not enough nodes after excluding original nodes")
-    sort_nodes_by_uf(nodes, file_model.size)
+    sort_nodes_degree_aware(nodes, file_model.size, indegree)
     node = nodes[0]
     
     url = f'{node["url"]}/objects/{file_model.keyfile}/{token_user}'
@@ -36,7 +88,7 @@ def allocate_single(db: Session, file_model, nodes: list[dict], token_user: str,
     
     return url
 
-def allocate_ida(db: Session, file_model, nodes: list[dict], token_user: str, userImpactFactor: float = 0.1, excluded_nodes: list[int] = None):
+def allocate_ida(db: Session, file_model, nodes: list[dict], token_user: str, userImpactFactor: float = 0.1, excluded_nodes: list[int] = None, indegree: int = 0):
     if excluded_nodes:
         nodes = [n for n in nodes if n["id"] not in excluded_nodes]
     
@@ -47,7 +99,7 @@ def allocate_ida(db: Session, file_model, nodes: list[dict], token_user: str, us
     if required_nodes > total_nodes:
         raise ValueError("Not enough nodes after exclusion")
 
-    sort_nodes_by_uf(nodes, file_model.size)
+    sort_nodes_degree_aware(nodes, file_model.size, indegree)
 
     result = []
     # From 1 to required_nodes
@@ -71,12 +123,12 @@ def allocate_ida(db: Session, file_model, nodes: list[dict], token_user: str, us
     db.commit()
     return result
 
-def allocate(db: Session, file_model, nodes: list[dict], token_user: str, excluded_nodes: list[int] = None):
+def allocate(db: Session, file_model, nodes: list[dict], token_user: str, excluded_nodes: list[int] = None, indegree: int = 0):
     if file_model.disperse in ["IDA", "SIDA"]:
-        data = allocate_ida(db, file_model, nodes, token_user, excluded_nodes=excluded_nodes)
+        data = allocate_ida(db, file_model, nodes, token_user, excluded_nodes=excluded_nodes, indegree=indegree)
         return data # returns list of routes
     elif file_model.disperse == "SINGLE":
-        url = allocate_single(db, file_model, nodes, token_user, excluded_nodes=excluded_nodes)
+        url = allocate_single(db, file_model, nodes, token_user, excluded_nodes=excluded_nodes, indegree=indegree)
         return [{"route": url}]
     return []
 
