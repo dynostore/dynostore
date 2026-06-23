@@ -29,3 +29,4 @@ logs/bench_download.csv
 logs/bench_upload.csv
 pyrightconfig.json
 .vscode/settings.json
+benchmarks/venv/*
