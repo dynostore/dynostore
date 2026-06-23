@@ -25,6 +25,24 @@ def _norm(vals: list[float]) -> list[float]:
         return [0.0] * len(vals)
     return [(v - vmin) / (vmax - vmin) for v in vals]
 
+def get_kagio_pageranks() -> dict:
+    pr_map = {}
+    if os.getenv("ENABLE_KAGIO", "true").lower() != "true":
+        return pr_map
+    
+    try:
+        kagio_client = KAGIO(base_url=KAGIO_BASE_URL, foxx_url=KAGIO_FOXX_URL, foxx_db=KAGIO_FOXX_DB, api_key=KAGIO_API_KEY)
+        ranks = kagio_client.centrality.data_containers_page_rank()
+        for entry in ranks:
+            try:
+                dc_id = int(str(entry["id"]).replace("datacontainer-", "").replace("dc-", ""))
+                pr_map[dc_id] = float(entry["pagerank"])
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"Error fetching KAGIO pagerank: {e}")
+    return pr_map
+
 def sort_nodes_degree_aware(nodes: list[dict], file_size: float, indegree: int = 0):
     for node in nodes:
         used = node.get("used", 0)
@@ -40,19 +58,7 @@ def sort_nodes_degree_aware(nodes: list[dict], file_size: float, indegree: int =
 
     if indegree > 0 and os.getenv("ENABLE_KAGIO", "true").lower() == "true":
         # Fetch PR from KAGIO
-        try:
-            kagio_client = KAGIO(base_url=KAGIO_BASE_URL, foxx_url=KAGIO_FOXX_URL, foxx_db=KAGIO_FOXX_DB, api_key=KAGIO_API_KEY)
-            ranks = kagio_client.centrality.data_containers_page_rank()
-            pr_map = {}
-            for entry in ranks:
-                try:
-                    dc_id = int(str(entry["id"]).replace("datacontainer-", "").replace("dc-", ""))
-                    pr_map[dc_id] = float(entry["pagerank"])
-                except Exception:
-                    continue
-        except Exception as e:
-            print(f"Error fetching KAGIO pagerank: {e}")
-            pr_map = {}
+        pr_map = get_kagio_pageranks()
 
         uf_vals = [node["uf"] for node in nodes]
         pr_vals = [pr_map.get(node["id"], 0.0) for node in nodes]
@@ -141,6 +147,10 @@ def locate_single(db: Session, token_user: str, file_model):
     
     result = []
     if nodes:
+        if os.getenv("ENABLE_KAGIO", "true").lower() == "true":
+            pr_map = get_kagio_pageranks()
+            # If a server has no PR in the map, default to 1.0 (lowest priority)
+            nodes.sort(key=lambda x: pr_map.get(x[1].id, 1.0))
         fis, srv = nodes[0]
         result.append({"route": f"{srv.url}/objects/{file_model.keyfile}/{token_user}"})
     return result
@@ -155,6 +165,11 @@ async def locate_ida(db: Session, token_user: str, file_model):
         Chunk.keyfile == file_model.keyfile
     ).all()
     
+    if os.getenv("ENABLE_KAGIO", "true").lower() == "true":
+        pr_map = get_kagio_pageranks()
+        # If a server has no PR in the map, default to 1.0 (lowest priority)
+        chunks_query.sort(key=lambda x: pr_map.get(x[1].id, 1.0))
+        
     result = []
     i: int = 0
 

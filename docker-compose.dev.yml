@@ -6,7 +6,7 @@ x-kagio-env: &kagio-env
   ROOT_USER: "root"
   KAGIO_FOXX_URL: "http://localhost:8529/_db/_system/kagio"
   KAGIO_FOXX_DB: "fgcs"
-  ENABLE_KAGIO: "false"
+  ENABLE_KAGIO: "true"
 
 services:
   # metadata:

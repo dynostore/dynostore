@@ -22,7 +22,7 @@ def get_pageranks(api_url):
     return {}
 
 def main():
-    gateway_host = os.getenv("GATEWAY_HOST", "127.0.0.1:80")
+    gateway_host = os.getenv("GATEWAY_HOST", "127.0.0.1:8070")
     kagio_host = os.getenv("KAGIO_HOST", "http://192.168.1.116:8080")
     catalog_name = "benchmark_catalog"
 
@@ -35,7 +35,7 @@ def main():
     objects = []
     
     print("\n--- Phase 1: Ingestion & Indegree Generation ---")
-    for i in range(100):
+    for i in range(10):
         region = rnd.choice(client_regions)
         size_MB = rnd.randint(128, 1024)
         size_B = size_MB #* 1024**2
@@ -52,13 +52,13 @@ def main():
             print(f"Failed to upload {obj_id}")
             continue
 
-        data_type = rnd.randint(1, 10)
+        data_type = rnd.randint(1, 3)
         if data_type <= 2:
-            times = rnd.randint(70, 100)
+            times = rnd.randint(3, 6)
         elif data_type <= 6:
-            times = rnd.randint(10, 70)
+            times = rnd.randint(6, 10)
         else:
-            times = rnd.randint(0, 10)
+            times = rnd.randint(0, 1)
 
         objects.append({
             "id": obj_id,
@@ -74,33 +74,33 @@ def main():
     print("PageRanks before replication:")
     print(json.dumps(pr_before, indent=2))
     
-    wait_time = 45
-    print(f"Waiting {wait_time} seconds for the 30-second replicator daemon to process top objects...")
-    time.sleep(wait_time)
+    # wait_time = 45
+    # print(f"Waiting {wait_time} seconds for the 30-second replicator daemon to process top objects...")
+    # time.sleep(wait_time)
     
     
-    print("\n--- Phase 3: Benchmark Replicated Objects ---")
-    top_objects = sorted(objects, key=lambda x: x["reads"], reverse=True)
+    # print("\n--- Phase 3: Benchmark Replicated Objects ---")
+    # top_objects = sorted(objects, key=lambda x: x["reads"], reverse=True)
     
-    for obj in top_objects[:30]:
-        obj_id = obj["id"]
+    # for obj in top_objects[:30]:
+    #     obj_id = obj["id"]
 
-        data_type = rnd.randint(1, 10)
-        if data_type <= 2:
-            times = rnd.randint(70, 100)
-        elif data_type <= 6:
-            times = rnd.randint(10, 70)
-        else:
-            times = rnd.randint(0, 10)
+    #     data_type = rnd.randint(1, 10)
+    #     if data_type <= 2:
+    #         times = rnd.randint(70, 100)
+    #     elif data_type <= 6:
+    #         times = rnd.randint(10, 70)
+    #     else:
+    #         times = rnd.randint(0, 10)
 
-        for _ in range(times):
-            client.get(key=obj_id)
+    #     for _ in range(times):
+    #         client.get(key=obj_id)
 
         
 
-    pr_after = get_pageranks(kagio_host)
-    print("\nPageRanks after replication:")
-    print(json.dumps(pr_after, indent=2))
+    # pr_after = get_pageranks(kagio_host)
+    # print("\nPageRanks after replication:")
+    # print(json.dumps(pr_after, indent=2))
     
 
 if __name__ == "__main__":
