@@ -142,8 +142,10 @@ PUBLIC_IP = os.getenv('PUBLIC_IP', 'localhost')
 
 db.create_all()
 
-from dynostore.daemons.replicator import start_replicator_daemon
-start_replicator_daemon()
+import os
+if os.getenv("ENABLE_KAGIO", "true").lower() == "true":
+    from dynostore.daemons.replicator import start_replicator_daemon
+    start_replicator_daemon()
 
 
 # @app.before_serving

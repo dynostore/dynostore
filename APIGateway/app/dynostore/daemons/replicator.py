@@ -5,7 +5,7 @@ import logging
 from threading import Thread
 
 from kagio.kagio import KAGIO
-from dynostore.controllers.data import DataController
+from dynostore.controllers.data import DataController, _log
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ def replicator_loop():
             logger.error(f"Replicator daemon error: {e}")
 
         # Parameterized for evaluation: every 5 minutes (300 seconds)
-        time.sleep(300)
+        time.sleep(30)
 
 async def replicate_object(obj_id_ori, new_obj_id, n_reads, metadata_service, pubsub_service):
     import aiohttp
@@ -165,7 +165,7 @@ async def replicate_object(obj_id_ori, new_obj_id, n_reads, metadata_service, pu
             return
             
     meta_ms = (time.perf_counter_ns() - t_meta) / 1e6
-    DataController._log("debug", "UPLOAD_METADATA", new_obj_id, "-", "SUCCESS", f"total_time_ms={meta_ms:.3f}")
+    _log("debug", "UPLOAD_METADATA", new_obj_id, "-", "SUCCESS", f"total_time_ms={meta_ms:.3f}")
             
     # Dispatch EC thread directly
     object_path = f".temp/{new_obj_id}"
@@ -175,7 +175,7 @@ async def replicate_object(obj_id_ori, new_obj_id, n_reads, metadata_service, pu
         f.write(obj_bytes)
     stream_ms = (time.perf_counter_ns() - t_stream) / 1e6
     
-    DataController._log("debug", "UPLOAD_DATA", new_obj_id, "END", "STREAM_OK", f"bytes={len(obj_bytes)};time_ms={stream_ms:.3f}")
+    _log("debug", "UPLOAD_DATA", new_obj_id, "END", "STREAM_OK", f"bytes={len(obj_bytes)};time_ms={stream_ms:.3f}")
         
     try:
         from threading import Thread
@@ -185,7 +185,7 @@ async def replicate_object(obj_id_ori, new_obj_id, n_reads, metadata_service, pu
             daemon=False
         )
         thread.start()
-        DataController._log("info", "UPLOAD_DATA", new_obj_id, "END", "SUCCESS", f"time_upload_ms={stream_ms:.3f};total_time_ms=0.000;chunks={request_json['chunks']};required={request_json['required_chunks']}")
+        _log("info", "UPLOAD_DATA", new_obj_id, "END", "SUCCESS", f"time_upload_ms={stream_ms:.3f};total_time_ms=0.000;chunks={request_json['chunks']};required={request_json['required_chunks']}")
         logger.info(f"Successfully started replication for {new_obj_id} excluding nodes {original_nodes}")
     except Exception as e:
         logger.error(f"Failed to start EC thread for replica: {e}")

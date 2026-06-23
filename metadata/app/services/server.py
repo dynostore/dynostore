@@ -38,7 +38,7 @@ def sort_nodes_degree_aware(nodes: list[dict], file_size: float, indegree: int =
     w_uf_default = uf_weight / total_w
     w_pr_default = pr_weight / total_w
 
-    if indegree > 0:
+    if indegree > 0 and os.getenv("ENABLE_KAGIO", "true").lower() == "true":
         # Fetch PR from KAGIO
         try:
             kagio_client = KAGIO(base_url=KAGIO_BASE_URL, foxx_url=KAGIO_FOXX_URL, foxx_db=KAGIO_FOXX_DB, api_key=KAGIO_API_KEY)

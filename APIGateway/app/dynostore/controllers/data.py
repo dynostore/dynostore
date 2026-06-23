@@ -198,16 +198,26 @@ class DataController:
                                0].replace("c", "")) - 1
             except Exception:
                 chunk_id = 0
+        if "_r" in key_object:
+            try:
+                rep_num = key_object.split("_r")[1]
+            except Exception:
+                rep_num = "1"
+        else:
+            rep_num = "1"
+            
+        chunk_str = f"{chunk_id}_{rep_num}"
+
         url = DataController._http_url(route['route'])
         t0 = _t0()
         _log("debug", "DOWNLOAD_CHUNK", key_object, "START",
-             "RUN", f"chunk_id={chunk_id};url={url}")
+             "RUN", f"chunk_id={chunk_str};url={url};attempt=1")
         async with session.get(url) as resp:
             resp.raise_for_status()
             data = await resp.read()
         dt_ms = _ms_since(t0)
         _log("debug", "DOWNLOAD_CHUNK", key_object, "END", "SUCCESS",
-             f"chunk_id={chunk_id};bytes={len(data)};time_ms={dt_ms:.3f}")
+             f"chunk_id={chunk_id};bytes={len(data)};time_ms={dt_ms:.3f};attempt=1")
         return chunk_id, data
 
     @staticmethod
@@ -263,12 +273,26 @@ class DataController:
                              f"status={resp.status};url={url};http_time_ms={_ms_since(t_http):.3f}")
                         return await resp.json(), resp.status
                     result = await resp.json()
+                    
+                # Check for replica (_r2)
+                url_r2 = f"http://{metadata_service}/storage/{token_user}/{key_object}_r2"
+                async with session.get(url_r2) as resp_r2:
+                    if resp_r2.status == 200:
+                        result_r2 = await resp_r2.json()
+                        for route in result_r2['data'].get('routes', []):
+                            route['is_replica'] = True
+                        for route in result['data'].get('routes', []):
+                            route['is_replica'] = False
+                        routes = result['data'].get('routes', []) + result_r2['data'].get('routes', [])
+                    else:
+                        routes = result['data'].get('routes', [])
+                        for route in routes:
+                            route['is_replica'] = False
         except Exception as e:
             _log("error", "PULL_METADATA", key_object, "END", "EXCEPTION",
                  f"url={url};msg={e};http_time_ms={_ms_since(t_http):.3f}")
             return {"error": str(e)}, 500
         
-        routes = result['data']['routes']
         metadata_object = result['data']['file']
         metadata_retrieval_end = time.perf_counter_ns()
         _log("debug", "PULL_METADATA", key_object, "END", "SUCCESS",
@@ -279,9 +303,55 @@ class DataController:
         # chunks
         chunk_retrieval_start = time.perf_counter_ns()
         try:
+            k = metadata_object.get('required_chunks', 1)
+            pr_scores = {}
+            if os.getenv("ENABLE_KAGIO", "true").lower() == "true":
+                try:
+                    from kagio import KAGIO
+                    KAGIO_API_KEY = os.getenv("KAGIO_API_KEY", "my_token")
+                    KAGIO_FOXX_URL = os.getenv("KAGIO_FOXX_URL", "http://kagio-foxx:8529/_db/_system/kagio")
+                    KAGIO_FOXX_DB = os.getenv("KAGIO_FOXX_DB", "_system")
+                    KAGIO_BASE_URL = os.getenv("API_BASE_URL", "http://10.18.173.209:8080")
+                    kagio_client = KAGIO(base_url=KAGIO_BASE_URL, foxx_url=KAGIO_FOXX_URL, foxx_db=KAGIO_FOXX_DB, api_key=KAGIO_API_KEY)
+                    pr_list = await asyncio.to_thread(kagio_client.centrality.data_containers_page_rank)
+                    if pr_list and getattr(pr_list, 'data', None):
+                        for dc in pr_list.data:
+                            dc_name = dc.get("vertex", "").replace("metadata_", "")
+                            pr_scores[dc_name] = dc.get("pagerank", 999.0)
+                except Exception as e:
+                    logger.error(f"Failed to fetch PageRank in pull_data: {e}")
+
+            def get_pr(route):
+                try:
+                    dc_name = route['route'].split("://")[-1].split("/")[0]
+                    return pr_scores.get(dc_name, 999.0)
+                except Exception:
+                    return 999.0
+
+            sorted_routes = sorted(routes, key=get_pr)
+            
+            selected_routes = []
+            seen_chunk_ids = set()
+            for route in sorted_routes:
+                try:
+                    cid = int(route["chunk"]["name"].split("_")[0].replace("c", "")) - 1
+                except Exception:
+                    cid = 0
+                if cid not in seen_chunk_ids:
+                    seen_chunk_ids.add(cid)
+                    selected_routes.append(route)
+                if len(selected_routes) == k:
+                    break
+                    
+            if len(selected_routes) < k:
+                logger.warning(f"Not enough unique chunks! Found {len(selected_routes)}, needed {k}. Reverting to all routes.")
+                selected_routes = routes
+
             async with aiohttp.ClientSession() as session:
-                tasks = [DataController.download_chunk(
-                    session, route, key_object) for route in routes]
+                tasks = []
+                for route in selected_routes:
+                    target_key = key_object + "_r2" if route.get('is_replica') else key_object
+                    tasks.append(DataController.download_chunk(session, route, target_key))
                 results = await asyncio.gather(*tasks)
         except Exception as e:
             _log("error", "PULL_CHUNKS", key_object,
