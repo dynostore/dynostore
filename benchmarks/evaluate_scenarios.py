@@ -6,6 +6,7 @@ import json
 import random
 import uuid
 import requests
+import argparse
 
 from dynostore.client import Client
 from kagio.kagio import KAGIO
@@ -53,14 +54,15 @@ def clean_system():
             except Exception as e:
                 print(f"Error clearing objects{i}: {e}")
 
-def restart_cluster(enable_kagio, enable_replicator):
+def restart_cluster(enable_kagio, enable_replicator, build_containers=False):
     print(f"\n---> Restarting Cluster: KAGIO={enable_kagio}, REPLICATOR={enable_replicator} <---")
     env = {
         "ENABLE_KAGIO": str(enable_kagio).lower(),
         "ENABLE_REPLICATOR": str(enable_replicator).lower()
     }
     # Force recreate apigateway and datacontainers
-    cmd = "docker compose -f ../docker-compose.dev.yml up -d --force-recreate apigateway metadata_server datacontainer1 datacontainer2 datacontainer3 datacontainer4 datacontainer5 datacontainer6 datacontainer7 datacontainer8 datacontainer9 datacontainer10"
+    build_flag = "--build " if build_containers else ""
+    cmd = f"docker compose -f ../docker-compose.dev.yml up -d {build_flag}--force-recreate apigateway metadata_server datacontainer1 datacontainer2 datacontainer3 datacontainer4 datacontainer5 datacontainer6 datacontainer7 datacontainer8 datacontainer9 datacontainer10"
     run_cmd(cmd, env)
     print("Waiting 15 seconds for services to become healthy...")
     time.sleep(15)
@@ -150,13 +152,34 @@ def collect_metrics(kagio_host):
         
     return metrics
 
-def run_scenario(scenario_name, enable_kagio, enable_replicator, num_objects=10, benchmark_reads=50):
+def wait_for_kagio_sync(kagio_host, target_obj_id, target_indegree, timeout=60):
+    print(f"--- Waiting for KAGIO to sync object {target_obj_id} to indegree {target_indegree} ---")
+    start_time = time.time()
+    # Usually kagio_host is http://IP:8080. If it's a foxx URL, we adjust. But evaluate_scenarios uses 8080.
+    url = f"{kagio_host}/metadata/indegree"
+    while time.time() - start_time < timeout:
+        try:
+            resp = requests.get(url, timeout=2)
+            if resp.status_code == 200:
+                data = resp.json()
+                for item in data:
+                    if target_obj_id in item.get("metadata_id", ""):
+                        if item.get("indegree", 0) >= target_indegree:
+                            print(f"  -> Sync achieved in {round(time.time() - start_time, 2)} seconds!")
+                            return True
+        except Exception:
+            pass
+        time.sleep(1)
+    print("  -> Warning: KAGIO sync timed out. Proceeding anyway.")
+    return False
+
+def run_scenario(scenario_name, enable_kagio, enable_replicator, num_objects=10, benchmark_reads=50, build_containers=False):
     print(f"\n=======================================================")
     print(f" RUNNING SCENARIO: {scenario_name}")
     print(f"=======================================================")
     
     clean_system()
-    restart_cluster(enable_kagio, enable_replicator)
+    restart_cluster(enable_kagio, enable_replicator, build_containers)
     
     gateway_host = os.getenv("GATEWAY_HOST", "127.0.0.1:8070")
     kagio_host = os.getenv("KAGIO_HOST", "http://10.18.173.209:8080")
@@ -218,6 +241,12 @@ def run_scenario(scenario_name, enable_kagio, enable_replicator, num_objects=10,
     else:
         print("\n--- Phase 2: Replication disabled, skipping wait ---")
 
+    if objects and enable_kagio:
+        last_obj = objects[-1]
+        wait_for_kagio_sync(kagio_host, last_obj["id"], last_obj["reads"])
+    elif not enable_kagio:
+        time.sleep(5) # Brief wait if kagio is disabled just in case
+
     print("\n--- Collecting PageRanks before benchmark ---")
     pr_before = get_pageranks(kagio_host)
 
@@ -244,6 +273,14 @@ def run_scenario(scenario_name, enable_kagio, enable_replicator, num_objects=10,
     perf_time = round(t_end - t_start, 2)
     print(f"\nBenchmark Performance Time: {perf_time} seconds")
     
+    if top_25 and enable_kagio:
+        last_bench_obj = top_25[-1]
+        # Total expected indegree is baseline reads + benchmark reads
+        expected_indegree = last_bench_obj["reads"] + benchmark_reads
+        wait_for_kagio_sync(kagio_host, last_bench_obj["id"], expected_indegree)
+    elif not enable_kagio:
+        time.sleep(5)
+    
     print("\n--- Phase 4: Collecting Metrics ---")
     metrics = collect_metrics(kagio_host)
     
@@ -269,31 +306,60 @@ def run_scenario(scenario_name, enable_kagio, enable_replicator, num_objects=10,
 
 
 def main():
-    results = []
+    parser = argparse.ArgumentParser(description="Evaluate Dynostore scenarios")
+    parser.add_argument("--test", type=str, default="all", help="Test to execute: 'all', '1' (UF), '2' (PR no rep), '3' (PR rep), or comma-separated e.g. '1,3'")
+    parser.add_argument("--num-objects", type=int, default=5, help="Number of objects to ingest")
+    parser.add_argument("--benchmark-reads", type=int, default=5, help="Number of reads per benchmarked object")
+    parser.add_argument("--build", action="store_true", help="Rebuild docker containers when restarting the cluster")
+    args = parser.parse_args()
     
-    # Config for quick evaluation
-    num_objects = 5
-    benchmark_reads = 30
+    # Load existing results to update them instead of wiping if only running specific tests
+    report_file = "evaluation_report.json"
+    existing_results = []
+    if os.path.exists(report_file):
+        try:
+            with open(report_file, 'r') as f:
+                existing_results = json.load(f)
+        except Exception:
+            pass
+            
+    tests_to_run = [t.strip() for t in args.test.split(',')]
+    new_results = []
     
-    # 1. Utilization Factor Load Balancer
-    res1 = run_scenario("Utilization Factor LB (No Replication)", enable_kagio=False, enable_replicator=False, num_objects=num_objects, benchmark_reads=benchmark_reads)
-    results.append(res1)
+    first_test_executed = False
+    def should_build():
+        nonlocal first_test_executed
+        if args.build and not first_test_executed:
+            first_test_executed = True
+            return True
+        return False
     
-    # 2. PageRank Load Balancer without replication
-    res2 = run_scenario("PageRank LB (No Replication)", enable_kagio=True, enable_replicator=False, num_objects=num_objects, benchmark_reads=benchmark_reads)
-    results.append(res2)
-    
-    # 3. PageRank Load Balancer with replication
-    res3 = run_scenario("PageRank LB (With Replication)", enable_kagio=True, enable_replicator=True, num_objects=num_objects, benchmark_reads=benchmark_reads)
-    results.append(res3)
+    if "all" in tests_to_run or "1" in tests_to_run:
+        res = run_scenario("Utilization Factor LB (No Replication)", enable_kagio=False, enable_replicator=False, num_objects=args.num_objects, benchmark_reads=args.benchmark_reads, build_containers=should_build())
+        new_results.append(res)
+        
+    if "all" in tests_to_run or "2" in tests_to_run:
+        res = run_scenario("PageRank LB (No Replication)", enable_kagio=True, enable_replicator=False, num_objects=args.num_objects, benchmark_reads=args.benchmark_reads, build_containers=should_build())
+        new_results.append(res)
+        
+    if "all" in tests_to_run or "3" in tests_to_run:
+        res = run_scenario("PageRank LB (With Replication)", enable_kagio=True, enable_replicator=True, num_objects=args.num_objects, benchmark_reads=args.benchmark_reads, build_containers=should_build())
+        new_results.append(res)
+        
+    # Merge results
+    final_results = []
+    for er in existing_results:
+        # Keep existing if it wasn't just re-run
+        if not any(nr["scenario"] == er["scenario"] for nr in new_results):
+            final_results.append(er)
+    final_results.extend(new_results)
 
-    
     print("\n=======================================================")
     print(" EVALUATION COMPLETE")
     print("=======================================================")
-    with open("evaluation_report.json", "w") as f:
-        json.dump(results, f, indent=2)
-    print("Report saved to evaluation_report.json")
+    with open(report_file, "w") as f:
+        json.dump(final_results, f, indent=2)
+    print(f"Report saved to {report_file}")
 
 if __name__ == "__main__":
     main()

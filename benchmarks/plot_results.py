@@ -114,11 +114,11 @@ def main():
     plot_grouped_container_metric(
         data, 
         'requests_attended', 
-        'Number of Requests Attended per Data Container', 
-        'Requests', 
-        'plot_requests_attended.png'
+        'Number of Read Operations per Data Container', 
+        'Read Operations', 
+        'plot_read_operations.png'
     )
-    print(" -> Saved plot_requests_attended.png")
+    print(" -> Saved plot_read_operations.png")
     
     plot_grouped_container_metric(
         data, 

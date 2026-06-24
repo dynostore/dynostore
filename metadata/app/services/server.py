@@ -56,7 +56,7 @@ def sort_nodes_degree_aware(nodes: list[dict], file_size: float, indegree: int =
     w_uf_default = uf_weight / total_w
     w_pr_default = pr_weight / total_w
 
-    if indegree > 0 and os.getenv("ENABLE_KAGIO", "true").lower() == "true":
+    if os.getenv("ENABLE_KAGIO", "true").lower() == "true":
         # Fetch PR from KAGIO
         pr_map = get_kagio_pageranks()
 
