@@ -1,9 +1,7 @@
 #!/bin/sh
 
 # Start the Log Watcher in the background
-if [ "$ENABLE_KAGIO" = "true" ]; then
-    logwatcher &
-fi
+logwatcher &
 
 # Start the Hypercorn server for the API Gateway
 

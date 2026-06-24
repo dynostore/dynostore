@@ -11,7 +11,7 @@ from kagio.kagio import KAGIO
 def get_pageranks(api_url):
     try:
         KAGIO_API_KEY = os.getenv("KAGIO_API_KEY", "my_token")
-        KAGIO_FOXX_URL = os.getenv("KAGIO_FOXX_URL", "http://192.168.1.116:8529/_db/_system/kagio")
+        KAGIO_FOXX_URL = os.getenv("KAGIO_FOXX_URL", "http://10.18.173.209:8529/_db/_system/kagio")
         KAGIO_FOXX_DB = os.getenv("KAGIO_FOXX_DB", "_system")
         kagio_client = KAGIO(base_url=api_url, foxx_url=KAGIO_FOXX_URL, foxx_db=KAGIO_FOXX_DB, api_key=KAGIO_API_KEY)
         
@@ -29,7 +29,7 @@ def main():
     args = parser.parse_args()
 
     gateway_host = os.getenv("GATEWAY_HOST", "127.0.0.1:8070")
-    kagio_host = os.getenv("KAGIO_HOST", "http://192.168.1.116:8080")
+    kagio_host = os.getenv("KAGIO_HOST", "http://10.18.173.209:8080")
     catalog_name = "benchmark_catalog"
 
     print(f"Initializing DynoStore client ({gateway_host})...")
@@ -89,7 +89,7 @@ def main():
     
     try:
         KAGIO_API_KEY = os.getenv("KAGIO_API_KEY", "my_token")
-        KAGIO_FOXX_URL = os.getenv("KAGIO_FOXX_URL", "http://192.168.1.116:8529/_db/_system/kagio")
+        KAGIO_FOXX_URL = os.getenv("KAGIO_FOXX_URL", "http://10.18.173.209:8529/_db/_system/kagio")
         KAGIO_FOXX_DB = os.getenv("KAGIO_FOXX_DB", "_system")
         kagio_client = KAGIO(base_url=kagio_host, foxx_url=KAGIO_FOXX_URL, foxx_db=KAGIO_FOXX_DB, api_key=KAGIO_API_KEY)
         

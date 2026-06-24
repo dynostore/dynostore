@@ -758,12 +758,13 @@ class DataController:
         # Dispatch EC thread (non-daemon)
         ec_thread_start = time.time_ns()
         try:
-            thread = threading.Thread(
-                target=DataController._background_erasure_coding,
-                args=(object_path, key_object, token_user, nodes),  # <-- fixed
-                daemon=False
-            )
-            thread.start()
+            # thread = threading.Thread(
+            #     target=DataController._background_erasure_coding,
+            #     args=(object_path, key_object, token_user, nodes),  # <-- fixed
+            #     daemon=False
+            # )
+            # thread.start()
+            DataController._background_erasure_coding(object_path, key_object, token_user, nodes)
             _merge_timeline_atomic(timeline_path, {
                 "ec_thread_dispatch": {"start": ec_thread_start},
                 "coding_status": "in_progress"

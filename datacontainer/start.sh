@@ -7,9 +7,7 @@
 LOG_FILE="/app/logs/kagio$DATA_CONTAINER_ID.log"
 
 # Start the log watcher in the background 
-if [ "$ENABLE_KAGIO" = "true" ]; then
-    logwatcher &
-fi
+logwatcher &
 
 # Start the uvicorn server for the metadata service
 gunicorn --reload --bind 0.0.0.0:80 app:app \

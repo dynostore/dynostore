@@ -201,7 +201,7 @@ async def locate_ida(db: Session, token_user: str, file_model):
                         "route": f"{url}/objects/{chunk.keyfile}{chunk.keychunk}/{token_user}",
                         "server": url
                     })
-                    i = 1
+                    i += 1
             except httpx.RequestError as e:
                 print(str(e), flush=True)
                 print("Error", flush=True)

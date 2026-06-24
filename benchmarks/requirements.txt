@@ -2,3 +2,4 @@ git+https://github.com/dynostore/dynostore-client.git
 git+https://github.com/CoCo-ARCOS/kagio-client.git
 requests
 numpy
+matplotlib

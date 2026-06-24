@@ -30,3 +30,5 @@ logs/bench_upload.csv
 pyrightconfig.json
 .vscode/settings.json
 benchmarks/venv/*
+benchmarks/evaluation_report.json
+benchmarks/*.png

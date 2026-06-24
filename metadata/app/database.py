@@ -20,6 +20,8 @@ SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     pool_recycle=3600,
+    pool_size=50,
+    max_overflow=100,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
