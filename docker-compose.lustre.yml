@@ -1,0 +1,485 @@
+version: "3.8"
+
+x-kagio-env: &kagio-env
+  # KAGIO ENVIRONMENT VARIABLES
+  API_BASE_URL: "http://10.18.173.209:8080"
+  ROOT_USER: "root"
+  KAGIO_FOXX_URL: "http://localhost:8529/_db/_system/kagio"
+  KAGIO_FOXX_DB: "fgcs"
+  ENABLE_KAGIO: "${ENABLE_KAGIO:-true}"
+  ENABLE_REPLICATOR: "${ENABLE_REPLICATOR:-true}"
+
+services:
+  # metadata:
+  #   build:
+  #     args:
+  #       user: metadata
+  #       uid: 1000
+  #     context: ./metadata
+  #     dockerfile: Dockerfile
+  #   image: dynostore/metadata:v2
+  #   restart: always
+  #   working_dir: /var/www/
+  #   volumes:
+  #     - ./metadata/app:/var/www
+  #   environment:
+  #     - APIGATEWAY_HOST=apigateway
+  #     - AUTH_HOST=auth
+  #   networks:
+  #     dynonetwork:
+  #       ipv4_address: 10.88.0.10
+
+  apigateway:
+    image: dynostore/apigateway:v1.1
+    build: 
+      context: ./APIGateway
+      dockerfile: Dockerfile
+    ports:
+        - "8070:80"
+    volumes:
+      - ./APIGateway/app/:/app
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      PUB_SUB_HOST: pub_sub
+      METADATA_HOST: metadata_server
+      PUBLIC_IP: 10.18.173.209
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio.log
+      LOG_FILES: '["/app/logs/dynostore.log"]'
+    restart: always
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.11
+    entrypoint: ["/entrypoint.sh"]
+
+  metadata_server:
+    image: dynostore/metadata:v3.1
+    build: 
+      context: ./metadata
+      dockerfile: Dockerfile
+    ports:
+        - "8095:80"
+    volumes:
+      - ./metadata/app/:/var/www
+    environment:
+      <<: *kagio-env
+      APIGATEWAY_HOST: apigateway
+      AUTH_HOST: auth
+    restart: always
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.12
+    working_dir: /var/www
+    entrypoint: ["sh", "-c", "/start.sh"]
+
+  # metadata_server:
+  #   image: nginx:1.17-alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - 8005:80
+  #   volumes:
+  #     - ./metadata/app:/var/www
+  #     - ./metadata/default.conf:/etc/nginx/conf.d/default.conf
+  #   environment:
+  #     - DB_CONNECTION=mysql
+  #     - DB_HOST=db_metadata
+  #     - DB_PORT=3306
+  #     - DB_DATABASE=metadata-api
+  #     - DB_USERNAME=metadata
+  #     - DB_PASSWORD=metadata2023
+  #   networks:
+  #     dynonetwork:
+  #       ipv4_address: 10.88.0.12
+
+  db_metadata:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'metadata-api'
+      # So you don't have to use root, but you can if you like
+      MYSQL_USER: 'metadata'
+      # You can use whatever password you like
+      MYSQL_PASSWORD: 'metadata2023'
+      # Password for root access
+      MYSQL_ROOT_PASSWORD: 'metadata2023'
+    expose:
+      # Opens port 3306 on the container
+      - '3306'
+      # Where our data will be persisted
+    volumes:
+      - my-db:/var/lib/mysql
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.13
+
+  auth: #Authentication service
+    image: dynostore/auth:v1
+    build: 
+      context: ./auth
+      dockerfile: Dockerfile
+    depends_on:
+      - db_auth
+    expose:
+      - "80"
+    ports:
+      - "8090:80"
+    environment:
+      DB_USER: muyalmanager
+      DB_PASSWORD: niCi7unamltrubrlJusp
+      DB_NAME: auth
+      DB_HOST: db_auth
+      DB_PORT: 5432
+      APIGATEWAY_HOST: apigateway
+    volumes:
+      - ./auth/auth/:/var/www/html/
+    restart: always
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.14
+
+  db_auth: #Authentication database
+    image: dynostore/databaseauth:v1
+    build: 
+      context: ./auth
+      dockerfile: DB.Dockerfile
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: muyalmanager
+      POSTGRES_PASSWORD: niCi7unamltrubrlJusp
+      ADMIN_USER: dynoadmin
+      ADMIN_PASSWORD: XeN5raSsdJkcOMN
+      ADMIN_EMAIL: admin@admin
+    volumes:
+      - psql-auth:/var/lib/postgresql/data
+      - ./auth/schema-sql/auth.sql:/docker-entrypoint-initdb.d/auth.sql
+      - ./auth/configure:/configure
+    restart: always
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.15
+
+  frontend: #Interfez gráfica
+    image: dynostore/frontend:v1
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8091:80"
+    depends_on:
+      - auth
+      - pub_sub
+      - apigateway
+    environment:
+      <<: *kagio-env
+      APIGATEWAY_HOST: apigateway
+    volumes:
+      - ./frontend/frontend/:/var/www/html/
+    restart: always
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.16
+
+  db_pub_sub: #Base de datos del servicio de publicación y suscripción
+    image: dynostore/dbpubsub:v1
+    build: 
+      context: ./pub_sub
+      dockerfile: DB.Dockerfile
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: pub_sub
+      POSTGRES_USER: muyalmanager
+      POSTGRES_PASSWORD: sicuhowradRaxi5R2ke6
+    volumes:
+      - psql-pubsub:/var/lib/postgresql/data
+      - ./pub_sub/schema-sql/pub_sub.sql:/docker-entrypoint-initdb.d/pub_sub.sql
+    restart: always
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.17
+
+  pub_sub: #Servicio de pub/sub 
+    image: dynostore/pubsub:v1
+    build: 
+      context: ./pub_sub
+      dockerfile: Dockerfile
+    depends_on:
+      - db_pub_sub
+    expose:
+      - "80"
+    environment:
+      DB_USER: muyalmanager
+      DB_PASSWORD: sicuhowradRaxi5R2ke6
+      DB_NAME: pub_sub
+      DB_HOST: db_pub_sub
+      DB_PORT: 5432
+      APIGATEWAY_HOST: apigateway
+    volumes:
+      - ./pub_sub/pub_sub/:/var/www/html/
+    restart: always
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.18
+
+  ######################
+  # Storage services
+  ######################
+
+  datacontainer1:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20001:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer1/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 1
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio1.log
+      LOG_FILES: '["/app/logs/datacontainer-1.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.19
+    entrypoint: ["sh", "-c", "/start.sh"]
+    
+  datacontainer2:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20002:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer2/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 2
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio2.log
+      LOG_FILES: '["/app/logs/datacontainer-2.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.20
+    entrypoint: ["sh", "-c", "/start.sh"]
+
+  datacontainer3:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20003:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer3/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 3
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio3.log
+      LOG_FILES: '["/app/logs/datacontainer-3.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.21
+    entrypoint: ["sh", "-c", "/start.sh"]
+
+  datacontainer4:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20004:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer4/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 4
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio4.log
+      LOG_FILES: '["/app/logs/datacontainer-4.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.22
+    entrypoint: ["sh", "-c", "/start.sh"]
+
+  datacontainer5:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20005:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer5/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 5
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio5.log
+      LOG_FILES: '["/app/logs/datacontainer-5.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.23
+    entrypoint: ["sh", "-c", "/start.sh"]
+
+  datacontainer6:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20006:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer6/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 6
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio6.log
+      LOG_FILES: '["/app/logs/datacontainer-6.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.24
+    entrypoint: ["sh", "-c", "/start.sh"]
+    
+  datacontainer7:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20007:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer7/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 7
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio7.log
+      LOG_FILES: '["/app/logs/datacontainer-7.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.25
+    entrypoint: ["sh", "-c", "/start.sh"]
+
+  datacontainer8:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20008:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer8/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 8
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio8.log
+      LOG_FILES: '["/app/logs/datacontainer-8.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.26
+    entrypoint: ["sh", "-c", "/start.sh"]
+
+  datacontainer9:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20009:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer9/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 9
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio9.log
+      LOG_FILES: '["/app/logs/datacontainer-9.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.27
+    entrypoint: ["sh", "-c", "/start.sh"]
+
+  datacontainer10:
+    image: dynostore/datacontainer:v1
+    build: 
+      context: ./datacontainer
+      dockerfile: Dockerfile
+    ports:
+        - "20010:80"
+    volumes:
+      - ./datacontainer/code/:/app
+      - /lustre/uc3m_a0/dynamic/dantedomizzi/dynostore_data/datacontainer10/objects:/data/objects:rw
+    environment:
+      <<: *kagio-env
+      AUTH_HOST: auth
+      APIGATEWAY_HOST: apigateway
+      DATA_CONTAINER_ID: 10
+      LOG_WATCHER_LOG_FILE: /app/logs/kagio10.log
+      LOG_FILES: '["/app/logs/datacontainer-10.log"]'
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.28
+    entrypoint: ["sh", "-c", "/start.sh"]
+         
+  monitor:
+    build: ./monitor
+    ports:
+      - "8092:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker-compose.dev.yml:/docker-compose.dev.yml:ro
+    restart: always
+    networks:
+      dynonetwork:
+        ipv4_address: 10.88.0.29
+
+volumes:  
+  psql-data-vc:
+    driver: local
+  sqlt-data-cm:
+    driver: local
+  psql-pubsub:
+    driver: local
+  psql-data-vc-api:
+    driver: local
+  mysql-db-data:
+    driver: local
+  psql-auth:
+    driver: local
+  psql-vc:
+    driver: local
+  my-db:
+    driver: local
+
+networks:
+  dynonetwork:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.88.0.0/16
