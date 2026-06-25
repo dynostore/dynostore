@@ -216,11 +216,11 @@ def run_scenario(scenario_name, enable_kagio, enable_replicator, num_objects=10,
         # Target indegree based on some distribution
         data_type = rnd.randint(1, 10)
         if data_type <= 2:
-            times = rnd.randint(5, 10)
+            times = rnd.randint(20, 30)
         elif data_type <= 6:
-            times = rnd.randint(3, 6)
+            times = rnd.randint(10, 20)
         else:
-            times = rnd.randint(0, 3)
+            times = rnd.randint(1, 10)
 
         objects.append({
             "id": obj_id,
