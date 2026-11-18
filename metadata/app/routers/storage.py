@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from database import get_db
 from core.auth import verify_token
 import schemas
-from models import File, Server, Abekey
+from models import File, Server, Abekey, Chunk, FilesInServer
 from services.server import allocate, locate, emplazador
 from services.server import NODES_REQUIRED_PUSH
 
@@ -15,6 +15,54 @@ router = APIRouter(
     prefix="/storage",
     tags=["storage"]
 )
+
+
+def _placement_routes(db: Session, file_model):
+    """Data-container routes of every chunk and replica recorded for a file."""
+    owner = file_model.owner
+    routes = []
+    for chunk, srv in db.query(Chunk, Server).join(Server, Server.id == Chunk.server_id).filter(
+            Chunk.keyfile == file_model.keyfile).all():
+        routes.append(f"http://{srv.url}/objects/{chunk.keyfile}{chunk.keychunk}/{owner}")
+    for fis, srv in db.query(FilesInServer, Server).join(Server, Server.id == FilesInServer.server_id).filter(
+            FilesInServer.keyfile == file_model.keyfile).all():
+        routes.append(f"http://{srv.url}/objects/{file_model.keyfile}/{owner}")
+    return routes
+
+
+async def _delete_routes(routes):
+    """Delete objects from data containers; True when every deletion succeeded."""
+    ok = True
+    async with httpx.AsyncClient() as client:
+        for route in routes:
+            try:
+                response = await client.delete(route, timeout=5.0)
+                ok = ok and response.status_code == 200
+            except httpx.RequestError:
+                ok = False
+    return ok
+
+
+def _forget_placements(db: Session, keyfile: str):
+    db.query(Chunk).filter(Chunk.keyfile == keyfile).delete()
+    db.query(FilesInServer).filter(FilesInServer.keyfile == keyfile).delete()
+
+
+async def _file_for_push(db: Session, tokenuser: str, keyfile: str):
+    """File row to (re)write.  A key that already holds an object is replaced:
+    its old chunks are deleted and forgotten so that reads never return them.
+    A live key owned by another user is refused."""
+    file_model = db.query(File).filter(File.keyfile == keyfile).first()
+    if file_model is None:
+        file_model = File(keyfile=keyfile)
+        db.add(file_model)
+        return file_model
+    if not file_model.removed and file_model.owner not in (None, tokenuser):
+        raise HTTPException(status_code=409, detail="Object key is in use by another user")
+    await _delete_routes(_placement_routes(db, file_model))
+    _forget_placements(db, keyfile)
+    file_model.removed = False
+    return file_model
 
 @router.get("/{tokenuser}/{keyfile}/exists", dependencies=[Depends(verify_token)])
 async def file_exists(tokenuser: str, keyfile: str, db: Session = Depends(get_db)):
@@ -39,10 +87,10 @@ async def file_exists(tokenuser: str, keyfile: str, db: Session = Depends(get_db
                 "disperse": file_model.disperse
             }
         }
-        return {
-            "message": "File not found",
-            "exists": False
-        }
+    return {
+        "message": "File not found",
+        "exists": False
+    }
 
 @router.get("/internal/{keyfile}", dependencies=[])
 async def internal_file_info(keyfile: str, db: Session = Depends(get_db)):
@@ -86,23 +134,11 @@ async def delete_file(tokenuser: str, keyfile: str, db: Session = Depends(get_db
     if not file_model:
         raise HTTPException(status_code=404, detail="File not found")
 
-    try:
-        data = await locate(db, tokenuser, file_model)
-        servers = data.get("routes", [])
-    except Exception:
-        servers = []
-
-    error = False
-    async with httpx.AsyncClient() as client:
-        for srv in servers:
-            try:
-                response = await client.delete(srv["route"], timeout=5.0)
-                if response.status_code != 200:
-                    error = True
-            except httpx.RequestError:
-                error = True
+    # Delete every chunk and replica, not only the ones a read would use.
+    error = not await _delete_routes(_placement_routes(db, file_model))
 
     try:
+        _forget_placements(db, keyfile)
         file_model.removed = True
         db.commit()
     except SQLAlchemyError as e:
@@ -152,10 +188,7 @@ async def push_file(
 
     # Register object metadata
     try:
-        file_model = db.query(File).filter(File.keyfile == keyfile).first()
-        if not file_model:
-            file_model = File(keyfile=keyfile)
-            db.add(file_model)
+        file_model = await _file_for_push(db, tokenuser, keyfile)
         
         file_model.name = payload.name
         file_model.size = payload.size
@@ -222,10 +255,7 @@ async def push_file_drex(
     disperse = "SINGLE" if payload.chunks == 1 else "IDA"
 
     try:
-        file_model = db.query(File).filter(File.keyfile == keyfile).first()
-        if not file_model:
-            file_model = File(keyfile=keyfile)
-            db.add(file_model)
+        file_model = await _file_for_push(db, tokenuser, keyfile)
         
         file_model.name = payload.name
         file_model.size = payload.size

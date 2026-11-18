@@ -10,7 +10,9 @@ def get_default_partition_size():
         if current_directory.startswith(part.mountpoint):
             partition_usage = psutil.disk_usage(part.mountpoint)
             return partition_usage.total
-    return None
+    # Containers often list no partition containing the working directory
+    # (for example Docker Desktop); use the file system that holds it.
+    return psutil.disk_usage(current_directory).total
 
 
 def get_total_memory():

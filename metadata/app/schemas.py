@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Union
 
 # File Schemas
 class FileCreate(BaseModel):
@@ -36,9 +36,9 @@ class FilePullResponse(BaseModel):
 # Server Schemas
 class ServerCreate(BaseModel):
     url: str
-    memory: str
-    storage: str
-    up: bool = False
+    memory: Union[str, int, float]
+    storage: Union[str, int, float]
+    up: Union[bool, int] = False
 
 class ServerResponse(BaseModel):
     id: int

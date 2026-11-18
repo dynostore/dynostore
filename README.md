@@ -33,11 +33,19 @@ This guide describes how to deploy DynoStore in a single-node environment using 
 To build the DynoStore services and launch them in the background:
 
 ```bash
-docker compose -f docker-compose-dev.yml build
-docker compose -f docker-compose-dev.yml up -d
+docker compose -f docker-compose.dev.yml build
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-> ℹ️ This command will start the metadata service, API gateway, and any other services defined in the `docker-compose-dev.yml` file.
+> ℹ️ This command will start the metadata service, API gateway, and any other services defined in the `docker-compose.dev.yml` file.
+
+> ℹ️ The scripts below use `docker-compose.dev.yml`.  Set `DYNOSTORE_PROJECT`
+> to the compose project name if you started the stack with `-p <name>`, and
+> `DYNOSTORE_COMPOSE_FILE` to use another compose file.  KAGIO analytics and the
+> replicator are disabled by default because they need an external KAGIO
+> service; enable them with `ENABLE_KAGIO=true ENABLE_REPLICATOR=true
+> KAGIO_API_BASE_URL=http://<kagio-host>:8080`.  On arm64 hosts, `mysql:5.7` has
+> no native image: export `DOCKER_DEFAULT_PLATFORM=linux/amd64` before step 1.
 
 ### 2. Configure the Metadata Database
 
@@ -47,7 +55,7 @@ Initialize the database schema and apply initial configurations:
 bash configure_services.sh
 ```
 
-This script sets up the database schema and ensures required tables and migrations are in place.
+This script waits for the metadata database and creates any missing tables (the metadata service also does this when it starts).
 
 ### 3. Create Superuser
 
@@ -57,7 +65,7 @@ Create a superuser to access the admin API and manage the system:
 bash generate_admin.sh
 ```
 
-After execution, this script will print the admin token. **Save it**, as it is required to perform privileged operations like registering storage nodes.
+After execution, this script will print the admin token on standard output. **Save it** (for example `bash generate_admin.sh > admin.token`), as it is required to perform privileged operations like registering storage nodes.
 
 ### 4. Register a Local Data Container
 
@@ -90,7 +98,7 @@ After installation, you can use the `dynostore` command-line tool to interact wi
 To stop and remove all services:
 
 ```bash
-docker compose -f docker-compose-dev.yml down
+docker compose -f docker-compose.dev.yml down
 ```
 
 

@@ -12,13 +12,14 @@ def registContainer(admin_token, address, memory, storage, verbose=True):
 
     r = requests.post(url, json=data)
 
-    if r.status_code == 200:
+    if r.status_code in (200, 201):
         logger.info('Data container succesfully added')
-    else:
-        try:
-            logger.error(r.json()['message'])
-        except:
-            logger.error(r.text)
+        return True
+    try:
+        logger.error(r.json()['message'])
+    except Exception:
+        logger.error('HTTP %s: %s', r.status_code, r.text[:200])
+    return False
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -42,5 +43,6 @@ parser.add_argument('-v', '--verbose', action='store_true',
 
 args = parser.parse_args()
 
-registContainer(args.admintoken, args.address,
-                args.memory, args.storage, args.verbose)
+if not registContainer(args.admintoken, args.address,
+                       args.memory, args.storage, args.verbose):
+    raise SystemExit(1)
