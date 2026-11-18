@@ -16,13 +16,15 @@ router = APIRouter(
 
 @router.post("/{tokenuser}", status_code=201, dependencies=[Depends(verify_token)])
 async def store_server(tokenuser: str, payload: schemas.ServerCreate, db: Session = Depends(get_db)):
-    server = Server(
-        url=payload.url,
-        memory=payload.memory,
-        storage=payload.storage,
-        up=payload.up
-    )
-    db.add(server)
+    # Registering the same URL again refreshes that record instead of adding a
+    # duplicate, so create_nodes.sh can be re-run safely.
+    server = db.query(Server).filter(Server.url == payload.url).first()
+    if server is None:
+        server = Server(url=payload.url)
+        db.add(server)
+    server.memory = str(payload.memory)
+    server.storage = str(payload.storage)
+    server.up = bool(payload.up)
     try:
         db.commit()
     except SQLAlchemyError as e:

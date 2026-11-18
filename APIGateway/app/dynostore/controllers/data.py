@@ -785,7 +785,7 @@ class DataController:
             pubsub_service, catalog_result["data"]["tokencatalog"], token_user, key_object
         )
         reg_ms = _ms_since(t_reg)
-        if status != 200:
+        if status not in (200, 201):
             _log("warning", "UPLOAD_DATA", key_object, "END", "CATALOG_REGISTER_ERROR",
                  f"status={status};result={results};time_ms={reg_ms:.3f}")
         

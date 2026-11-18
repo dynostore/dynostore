@@ -2,12 +2,14 @@ version: "3.8"
 
 x-kagio-env: &kagio-env
   # KAGIO ENVIRONMENT VARIABLES
-  API_BASE_URL: "http://10.18.173.209:8080"
+  # KAGIO is an external analytics service; set ENABLE_KAGIO=true and
+  # KAGIO_API_BASE_URL to use it.
+  API_BASE_URL: "${KAGIO_API_BASE_URL:-http://10.18.173.209:8080}"
   ROOT_USER: "root"
   KAGIO_FOXX_URL: "http://localhost:8529/_db/_system/kagio"
   KAGIO_FOXX_DB: "fgcs"
-  ENABLE_KAGIO: "${ENABLE_KAGIO:-true}"
-  ENABLE_REPLICATOR: "${ENABLE_REPLICATOR:-true}"
+  ENABLE_KAGIO: "${ENABLE_KAGIO:-false}"
+  ENABLE_REPLICATOR: "${ENABLE_REPLICATOR:-false}"
 
 services:
   # metadata:

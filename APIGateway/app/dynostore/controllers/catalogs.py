@@ -62,8 +62,7 @@ class CatalogController():
         print(results.text, flush=True)
         if results.status_code == 201:
             return results.json(), results.status_code
-        elif results:
-            return results.text, results.status_code
+        return results.text, results.status_code
     
     @staticmethod
     def listFilesInCatalog(

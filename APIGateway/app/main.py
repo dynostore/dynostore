@@ -142,6 +142,17 @@ PUBLIC_IP = os.getenv('PUBLIC_IP', 'localhost')
 
 db.create_all()
 
+# Object keys must match the pub/sub catalog grammar (pub_sub/.htaccess);
+# reject others before any metadata or data is stored.
+import re as _re
+_OBJECT_KEY = _re.compile(r"[0-9A-Za-z-]{32,256}")
+
+
+def _invalid_key(keyobject):
+    if _OBJECT_KEY.fullmatch(keyobject):
+        return None
+    return jsonify({"error": "object key must match [0-9A-Za-z-]{32,256}"}), 400
+
 import os
 if os.getenv("ENABLE_REPLICATOR", "true").lower() == "true":
     from dynostore.daemons.replicator import start_replicator_daemon
@@ -406,6 +417,9 @@ async def downloadObject(tokenuser, keyobject):
 @app.route('/storage/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 async def uploadObjectDREX(tokenuser, catalog, keyobject):
+    refused = _invalid_key(keyobject)
+    if refused:
+        return refused
     return await DataController.push_data(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
 
 @app.route('/timeline/<tokenuser>/<keyobject>', methods=["GET"])
@@ -416,12 +430,18 @@ async def get_timeline(tokenuser, keyobject):
 @app.route('/metadata/<tokenuser>/<keyobject>', methods=["POST"])
 @validateToken(auth_host=AUTH_HOST)
 async def upload_metadata(tokenuser, keyobject):
+    refused = _invalid_key(keyobject)
+    if refused:
+        return refused
     return await DataController.upload_metadata(request, tokenuser, keyobject)
 
 
 @app.route('/upload/<tokenuser>/<catalog>/<keyobject>', methods=["PUT"])
 @validateToken(auth_host=AUTH_HOST)
 async def upload_data(tokenuser, catalog, keyobject):
+    refused = _invalid_key(keyobject)
+    if refused:
+        return refused
     return await DataController.upload_data(request, METADATA_HOST, PUB_SUB_HOST, catalog, tokenuser, keyobject)
 
 
@@ -434,7 +454,8 @@ async def existsObject(tokenuser, keyobject):
 @app.route('/storage/<tokenuser>/<keyobject>', methods=["DELETE"])
 @validateToken(auth_host=AUTH_HOST)
 async def deleteObject(tokenuser, keyobject):
-    return DataController.delete_object(request, tokenuser, keyobject, METADATA_HOST)
+    payload, status = await DataController.delete_object(tokenuser, keyobject, METADATA_HOST)
+    return jsonify(payload), status
 
 
 @app.route('/datacontainer/<admintoken>', methods=["POST"])
@@ -452,7 +473,7 @@ async def deleteAllDCs(admintoken):
 @app.route("/statistic/<admintoken>", methods=["GET"])
 @validateAdminToken(auth_host=AUTH_HOST)
 async def statistics(admintoken):
-    url_service = f"http://{METADATA_HOST}/api/servers/{admintoken}"
+    url_service = f"http://{METADATA_HOST}/servers/{admintoken}"
     results = requests.get(url_service)
     return jsonify(results.json()), results.status_code
 
@@ -460,7 +481,7 @@ async def statistics(admintoken):
 @app.route("/clean/<admintoken>", methods=["GET"])
 @validateAdminToken(auth_host=AUTH_HOST)
 async def clean(admintoken):
-    url_service = f'http://{METADATA_HOST}/api/clean'
+    url_service = f'http://{METADATA_HOST}/servers/clean/all'
     results = requests.get(url_service)
     return jsonify(results.json()), results.status_code
 
